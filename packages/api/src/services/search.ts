@@ -251,17 +251,19 @@ export class SearchService {
     try {
       // ✅ OPTIMIZED: Full-text search with relevance scoring
       const { data: users, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select(`
           id,
-          name,
-          handle,
-          avatar_url,
+          user_id,
+          username,
+          display_name,
           bio,
-          is_verified,
-          created_at
+          avatar_url,
+          verified,
+          followers_count,
+          following_count
         `)
-        .or(`name.ilike.%${query}%,handle.ilike.%${query}%,bio.ilike.%${query}%`)
+        .or(`username.ilike.%${query}%,display_name.ilike.%${query}%,bio.ilike.%${query}%`)
         .limit(searchQuery.limit || 20);
 
       if (error) throw error;
@@ -269,6 +271,10 @@ export class SearchService {
       // ✅ OPTIMIZED: Apply relevance scoring and sorting
       const scoredUsers = users?.map(user => ({
         ...user,
+        // Map profiles columns to expected user format
+        name: user.display_name,
+        handle: user.username,
+        is_verified: user.verified,
         relevanceScore: this.calculateUserRelevance(query, user)
       })).sort((a, b) => b.relevanceScore - a.relevanceScore) || [];
 

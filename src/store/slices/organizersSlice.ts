@@ -371,11 +371,13 @@ export const searchOrganizers = createAsyncThunk(
           followersCount,
           totalEvents,
           createdAt,
-          user:users(
+          user:profiles(
             id,
-            name,
+            user_id,
+            username,
+            display_name,
             avatar_url,
-            handle
+            verified
           )
         `)
         .or(`companyName.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
