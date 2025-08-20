@@ -101,6 +101,7 @@ export interface Event {
   visibility: 'public' | 'private' | 'unlisted';
   status: 'draft' | 'published' | 'cancelled' | 'completed';
   category?: string;
+  category_id?: string;
   tags?: string[];
   cover_image_url?: string;
   settings: EventSettings;
@@ -109,6 +110,8 @@ export interface Event {
   
   // Computed fields
   org?: Organization;
+  category_details?: EventCategory;
+  tags_details?: EventTag[];
   tickets?: Ticket[];
   posts?: Post[];
   user_access_level?: 'none' | 'general' | 'vip' | 'crew';
@@ -134,8 +137,10 @@ export interface Organization {
   slug: string;
   description?: string;
   logo_url?: string;
+  avatar_url?: string;
   website_url?: string;
   is_verified: boolean;
+  verified?: boolean;
   settings: OrgSettings;
   created_at: string;
   updated_at: string;
@@ -267,6 +272,7 @@ export interface Post {
   author_id: string;
   media_asset_id?: string;
   body?: string;
+  image_url?: string;
   access_level: 'public' | 'general' | 'vip' | 'crew';
   metrics: PostMetrics;
   is_active: boolean;
@@ -442,6 +448,56 @@ export interface AnalyticsEvent {
   timestamp: string;
 }
 
+// Reference Tables
+export interface EventCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  icon_url?: string;
+  color_hex?: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventTag {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  usage_count: number;
+  is_trending: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Analytics Tables
+export interface UserAnalytics {
+  id: string;
+  user_id: string;
+  event_id?: string;
+  action_type: string;
+  metadata: Record<string, any>;
+  created_at: string;
+  
+  // Computed fields
+  user?: AuthUser;
+  event?: Event;
+}
+
+export interface EventAnalytics {
+  id: string;
+  event_id: string;
+  metric_type: string;
+  metric_value?: number;
+  metadata: Record<string, any>;
+  created_at: string;
+  
+  // Computed fields
+  event?: Event;
+}
+
 // API Endpoints
 export interface ApiEndpoints {
   // Authentication
@@ -464,6 +520,8 @@ export interface ApiEndpoints {
       near?: string; // "lat,lng"
       when?: 'today' | 'week' | 'month';
       category?: string;
+      category_id?: string;
+      tags?: string[];
       cursor?: string;
       limit?: number;
     };
@@ -556,6 +614,30 @@ export interface ApiEndpoints {
     request: { event_id: string };
     response: { access: 'none' | 'general' | 'vip' | 'crew' };
   };
+  
+  // Reference Data
+  'GET /event-categories': {
+    request: {};
+    response: { categories: EventCategory[] };
+  };
+  'GET /event-tags': {
+    request: { trending?: boolean };
+    response: { tags: EventTag[] };
+  };
+  
+  // Analytics
+  'POST /analytics/user': {
+    request: { action_type: string; event_id?: string; metadata?: Record<string, any> };
+    response: { success: boolean };
+  };
+  'POST /analytics/event': {
+    request: { event_id: string; metric_type: string; metric_value?: number; metadata?: Record<string, any> };
+    response: { success: boolean };
+  };
+  'GET /analytics/event/:id': {
+    request: { id: string; metric_type?: string; date_range?: string };
+    response: { analytics: EventAnalytics[]; meta: ApiMeta };
+  };
 }
 
 // Utility types
@@ -576,3 +658,303 @@ export const API_ERROR_CODES = {
 } as const;
 
 export type ApiErrorCode = typeof API_ERROR_CODES[keyof typeof API_ERROR_CODES];
+
+// Smart Search Service Types
+export interface SmartSearchFilters {
+  category_id?: string;
+  location?: { lat: number; lng: number; radius?: number };
+  date_range?: { start: string; end: string };
+  price_range?: { min: number; max: number };
+  tags?: string[];
+  access_level?: string;
+}
+
+export interface SearchAnalytics {
+  user_id?: string;
+  session_id: string;
+  query: string;
+  search_type: 'global' | 'events' | 'users' | 'organizations';
+  results_count: number;
+  has_results: boolean;
+  search_time_ms: number;
+  filters_applied: Record<string, any>;
+  clicked_result_id?: string;
+  clicked_result_type?: string;
+  position_clicked?: number;
+}
+
+export interface SearchSuggestion {
+  query: string;
+  suggestion_type: 'trending' | 'popular' | 'related';
+  target_id?: string;
+  target_type?: string;
+  relevance_score: number;
+  usage_count: number;
+}
+
+// Location Intelligence Service Types
+export interface GeoPoint {
+  lat: number;
+  lng: number;
+}
+
+export interface LocationInsights {
+  nearby_events_count: number;
+  popular_venues: Array<{
+    venue: string;
+    event_count: number;
+    avg_attendance: number;
+  }>;
+  category_distribution: Array<{
+    category: string;
+    count: number;
+    percentage: number;
+  }>;
+  time_distribution: Array<{
+    time_slot: string;
+    count: number;
+  }>;
+  price_analysis: {
+    avg_price: number;
+    min_price: number;
+    max_price: number;
+    price_ranges: Array<{
+      range: string;
+      count: number;
+    }>;
+  };
+}
+
+export interface GeographicAudience {
+  primary_markets: Array<{
+    city: string;
+    attendee_count: number;
+    percentage: number;
+  }>;
+  travel_patterns: Array<{
+    from_city: string;
+    to_city: string;
+    attendee_count: number;
+  }>;
+  radius_analysis: Array<{
+    radius_miles: number;
+    attendee_count: number;
+    percentage: number;
+  }>;
+}
+
+// Content Recommendation Service Types
+export interface ContentRecommendation {
+  id: string;
+  type: 'post' | 'event' | 'user' | 'organization';
+  title?: string;
+  content?: string;
+  author?: any;
+  event?: any;
+  engagement_score: number;
+  relevance_score: number;
+  viral_potential: number;
+  reasoning: string[];
+}
+
+export interface TrendingContent {
+  id: string;
+  type: 'post' | 'event';
+  title: string;
+  content?: string;
+  engagement_velocity: number;
+  viral_score: number;
+  trending_reason: string;
+  growth_rate: number;
+}
+
+export interface EventContent {
+  event_id: string;
+  posts: any[];
+  media_assets: any[];
+  user_generated_content: any[];
+  top_contributors: any[];
+  engagement_summary: {
+    total_posts: number;
+    total_reactions: number;
+    total_comments: number;
+    avg_engagement_rate: number;
+  };
+}
+
+// Smart Services API Endpoints
+export interface SmartSearchRequest {
+  query: string;
+  userId?: string;
+  filters?: SmartSearchFilters;
+  limit?: number;
+}
+
+export interface SmartSearchResponse {
+  events: any[];
+  users: any[];
+  organizations: any[];
+  suggestions: SearchSuggestion[];
+  meta: {
+    total_results: number;
+    search_time_ms: number;
+    personalized: boolean;
+  };
+}
+
+export interface LocationIntelligenceRequest {
+  location: GeoPoint;
+  radiusMiles?: number;
+  filters?: {
+    category_id?: string;
+    date_range?: { start: string; end: string };
+    price_range?: { min: number; max: number };
+    limit?: number;
+  };
+}
+
+export interface LocationIntelligenceResponse {
+  events: any[];
+  distance_info: Array<{
+    event_id: string;
+    distance_miles: number;
+    travel_time_minutes?: number;
+  }>;
+  meta: {
+    total_found: number;
+    radius_miles: number;
+    location: GeoPoint;
+  };
+}
+
+export interface ContentRecommendationsRequest {
+  userId: string;
+  limit?: number;
+}
+
+export interface ContentRecommendationsResponse {
+  recommendations: ContentRecommendation[];
+  meta: {
+    total_recommendations: number;
+    personalization_level: 'high' | 'medium' | 'low';
+    reasoning: string[];
+  };
+}
+
+export interface TrendingContentRequest {
+  timeWindow?: '1h' | '24h' | '7d';
+  limit?: number;
+}
+
+export interface TrendingContentResponse {
+  trending_content: TrendingContent[];
+  meta: {
+    detection_time: string;
+    time_window: string;
+    total_trending: number;
+  };
+}
+
+export interface EventContentRequest {
+  eventId: string;
+}
+
+export interface EventContentResponse {
+  event_id: string;
+  posts: any[];
+  media_assets: any[];
+  user_generated_content: any[];
+  top_contributors: any[];
+  engagement_summary: {
+    total_posts: number;
+    total_reactions: number;
+    total_comments: number;
+    avg_engagement_rate: number;
+  };
+}
+
+// API Routes for Smart Services
+export interface SmartServicesAPI {
+  // Smart Search
+  'GET /smart-search': {
+    request: SmartSearchRequest;
+    response: ApiResponse<SmartSearchResponse>;
+  };
+  'POST /smart-search/analytics': {
+    request: SearchAnalytics;
+    response: ApiResponse<{ success: boolean }>;
+  };
+  'POST /smart-search/click': {
+    request: {
+      sessionId: string;
+      resultId: string;
+      resultType: string;
+      position: number;
+    };
+    response: ApiResponse<{ success: boolean }>;
+  };
+
+  // Location Intelligence
+  'GET /location/nearby-events': {
+    request: LocationIntelligenceRequest;
+    response: ApiResponse<LocationIntelligenceResponse>;
+  };
+  'GET /location/insights/:orgId': {
+    request: {};
+    response: ApiResponse<LocationInsights>;
+  };
+  'GET /location/audience/:eventId': {
+    request: {};
+    response: ApiResponse<GeographicAudience>;
+  };
+  'GET /location/optimal-times': {
+    request: {
+      location: GeoPoint;
+      categoryId?: string;
+    };
+    response: ApiResponse<{
+      recommended_times: Array<{
+        day_of_week: string;
+        time_slot: string;
+        success_score: number;
+        reasoning: string;
+      }>;
+      traffic_considerations: Array<{
+        time_slot: string;
+        traffic_level: 'low' | 'medium' | 'high';
+        recommendation: string;
+      }>;
+    }>;
+  };
+
+  // Content Recommendations
+  'GET /recommendations/personalized': {
+    request: ContentRecommendationsRequest;
+    response: ApiResponse<ContentRecommendationsResponse>;
+  };
+  'GET /recommendations/trending': {
+    request: TrendingContentRequest;
+    response: ApiResponse<TrendingContentResponse>;
+  };
+  'GET /recommendations/event-content/:eventId': {
+    request: EventContentRequest;
+    response: ApiResponse<EventContentResponse>;
+  };
+  'GET /recommendations/discovery': {
+    request: {
+      filters?: {
+        category_id?: string;
+        location?: { lat: number; lng: number; radius?: number };
+        content_type?: 'posts' | 'events' | 'users';
+      };
+      limit?: number;
+    };
+    response: ApiResponse<{
+      recommendations: ContentRecommendation[];
+      meta: {
+        discovery_type: string;
+        total_recommendations: number;
+      };
+    }>;
+  };
+}
