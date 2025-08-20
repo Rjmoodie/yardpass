@@ -1,694 +1,506 @@
-import { PerformanceObserver, PerformanceEntry, PerformanceMark, PerformanceMeasure } from 'react-native';
-import { Platform } from 'react-native';
+// ✅ OPTIMIZED: Performance monitoring service with search analytics
+import { supabase } from './supabase';
 
 export interface PerformanceMetrics {
-  loadTime: number;
-  renderTime: number;
-  memoryUsage: number;
-  networkRequests: number;
-  errors: number;
-  fps: number;
-  batteryLevel: number;
-  networkType: string;
-  deviceInfo: DeviceInfo;
-  timestamp: number;
-  // ✅ ADDED: Ticketing-specific metrics
+  // Existing metrics
+  appLoadTime: number;
+  screenRenderTime: number;
+  apiResponseTime: number;
+  imageLoadTime: number;
+  navigationTime: number;
+  
+  // Ticketing metrics
   ticketPurchaseTime: number;
   qrValidationTime: number;
   ticketListLoadTime: number;
   paymentProcessingTime: number;
   databaseQueryTime: number;
-  // ✅ ADDED: Organizer-specific metrics
+  
+  // Organizer metrics
   organizerLoadTime: number;
   organizerEventsLoadTime: number;
   organizerFollowersLoadTime: number;
   eventOrganizerLoadTime: number;
   organizerSearchTime: number;
-}
-
-export interface DeviceInfo {
-  platform: string;
-  version: string;
-  model: string;
-  memory: number;
-  cpu: string;
+  
+  // ✅ NEW: Search metrics
+  searchQueryTime: number;
+  searchResultsCount: number;
+  searchRelevanceScore: number;
+  searchSuggestionTime: number;
+  searchClickThroughRate: number;
+  searchZeroResultRate: number;
+  searchAnalyticsTime: number;
 }
 
 export interface PerformanceConfig {
   enabled: boolean;
-  sampleRate: number;
-  maxMetrics: number;
-  uploadInterval: number;
-  enableRealTime: boolean;
-  trackMemory: boolean;
-  trackBattery: boolean;
-  trackNetwork: boolean;
-  // ✅ ADDED: Ticketing-specific config
   trackTicketing: boolean;
   trackPayments: boolean;
   trackQRValidation: boolean;
-  // ✅ ADDED: Organizer-specific config
   trackOrganizers: boolean;
+  trackSearch: boolean; // ✅ NEW: Search tracking
+  alertThreshold: number;
+  logToConsole: boolean;
 }
 
-class PerformanceMonitor {
+export class PerformanceMonitor {
+  private metrics: PerformanceMetrics;
   private config: PerformanceConfig;
-  private metrics: PerformanceMetrics[] = [];
-  private marks: Map<string, number> = new Map();
-  private measures: Map<string, number> = new Map();
-  private observers: PerformanceObserver[] = [];
-  private uploadTimer: NodeJS.Timeout | null = null;
-  private isInitialized = false;
+  private alerts: string[] = [];
 
-  // ✅ ADDED: Organizer performance tracking properties
-  private organizerLoadTimes: number[] = [];
-  private organizerEventsLoadTimes: number[] = [];
-  private organizerFollowersLoadTimes: number[] = [];
-  private eventOrganizerLoadTimes: number[] = [];
-  private organizerSearchTimes: number[] = [];
+  constructor(config: PerformanceConfig) {
+    this.config = config;
+    this.metrics = this.initializeMetrics();
+  }
 
-  constructor(config: Partial<PerformanceConfig> = {}) {
-    this.config = {
-      enabled: true,
-      sampleRate: 0.1, // 10% of sessions
-      maxMetrics: 1000,
-      uploadInterval: 60000, // 1 minute
-      enableRealTime: false,
-      trackMemory: true,
-      trackBattery: true,
-      trackNetwork: true,
-      trackTicketing: true, // ✅ ADDED: Track ticketing performance
-      trackPayments: true,
-      trackQRValidation: true,
-      trackOrganizers: true, // ✅ ADDED: Enable organizer tracking
-      ...config
+  private initializeMetrics(): PerformanceMetrics {
+    return {
+      appLoadTime: 0,
+      screenRenderTime: 0,
+      apiResponseTime: 0,
+      imageLoadTime: 0,
+      navigationTime: 0,
+      ticketPurchaseTime: 0,
+      qrValidationTime: 0,
+      ticketListLoadTime: 0,
+      paymentProcessingTime: 0,
+      databaseQueryTime: 0,
+      organizerLoadTime: 0,
+      organizerEventsLoadTime: 0,
+      organizerFollowersLoadTime: 0,
+      eventOrganizerLoadTime: 0,
+      organizerSearchTime: 0,
+      // ✅ NEW: Search metrics initialization
+      searchQueryTime: 0,
+      searchResultsCount: 0,
+      searchRelevanceScore: 0,
+      searchSuggestionTime: 0,
+      searchClickThroughRate: 0,
+      searchZeroResultRate: 0,
+      searchAnalyticsTime: 0,
     };
   }
 
-  /**
-   * Initialize the performance monitor
-   */
-  async initialize(): Promise<void> {
-    if (this.isInitialized) return;
+  // ✅ NEW: Search performance tracking methods
+  trackSearchQuery(duration: number, resultsCount: number, relevanceScore: number) {
+    if (!this.config.trackSearch) return;
 
-    if (this.config.enabled) {
-      // Start periodic metric collection
-      this.startPeriodicCollection();
-      
-      // Initialize observers if supported
-      if (Platform.OS === 'web' && typeof PerformanceObserver !== 'undefined') {
-        this.initializeObservers();
-      }
+    this.metrics.searchQueryTime = duration;
+    this.metrics.searchResultsCount = resultsCount;
+    this.metrics.searchRelevanceScore = relevanceScore;
+
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Search query took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
     }
 
-    this.isInitialized = true;
-  }
-
-  /**
-   * Mark a performance point
-   */
-  mark(name: string): void {
-    if (!this.config.enabled) return;
-
-    const timestamp = Date.now();
-    this.marks.set(name, timestamp);
-    
-    if (Platform.OS === 'web') {
-      performance.mark(name);
+    if (this.config.logToConsole) {
+      console.log(`🔍 Search Performance: ${duration}ms, ${resultsCount} results, relevance: ${relevanceScore.toFixed(2)}`);
     }
   }
 
-  /**
-   * Measure performance between two marks
-   */
-  measure(name: string, startMark: string, endMark: string): number {
-    if (!this.config.enabled) return 0;
+  trackSearchSuggestions(duration: number) {
+    if (!this.config.trackSearch) return;
 
-    const startTime = this.marks.get(startMark);
-    const endTime = this.marks.get(endMark);
+    this.metrics.searchSuggestionTime = duration;
 
-    if (!startTime || !endTime) {
-      console.warn(`Performance marks not found: ${startMark} or ${endMark}`);
-      return 0;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Search suggestions took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
     }
 
-    const duration = endTime - startTime;
-    this.measures.set(name, duration);
-
-    if (Platform.OS === 'web') {
-      performance.measure(name, startMark, endMark);
+    if (this.config.logToConsole) {
+      console.log(`💡 Search Suggestions: ${duration}ms`);
     }
-
-    return duration;
   }
 
-  // ✅ ADDED: Ticketing-specific performance tracking
-  /**
-   * Track ticket purchase performance
-   */
-  trackTicketPurchase(startTime: number, endTime: number): void {
+  trackSearchClickThrough(rate: number) {
+    if (!this.config.trackSearch) return;
+
+    this.metrics.searchClickThroughRate = rate;
+
+    if (this.config.logToConsole) {
+      console.log(`📊 Search CTR: ${rate.toFixed(2)}%`);
+    }
+  }
+
+  trackSearchZeroResults(rate: number) {
+    if (!this.config.trackSearch) return;
+
+    this.metrics.searchZeroResultRate = rate;
+
+    if (rate > 10) { // Alert if zero result rate is above 10%
+      this.alerts.push(`High zero result rate: ${rate.toFixed(2)}%`);
+    }
+
+    if (this.config.logToConsole) {
+      console.log(`❌ Search Zero Results: ${rate.toFixed(2)}%`);
+    }
+  }
+
+  trackSearchAnalytics(duration: number) {
+    if (!this.config.trackSearch) return;
+
+    this.metrics.searchAnalyticsTime = duration;
+
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Search analytics took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
+    }
+
+    if (this.config.logToConsole) {
+      console.log(`📈 Search Analytics: ${duration}ms`);
+    }
+  }
+
+  // Existing tracking methods
+  trackAppLoad(duration: number) {
+    this.metrics.appLoadTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`App load took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
+    }
+  }
+
+  trackScreenRender(duration: number) {
+    this.metrics.screenRenderTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Screen render took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
+    }
+  }
+
+  trackApiResponse(duration: number) {
+    this.metrics.apiResponseTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`API response took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
+    }
+  }
+
+  trackImageLoad(duration: number) {
+    this.metrics.imageLoadTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Image load took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
+    }
+  }
+
+  trackNavigation(duration: number) {
+    this.metrics.navigationTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Navigation took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
+    }
+  }
+
+  // Ticketing tracking methods
+  trackTicketPurchase(duration: number) {
     if (!this.config.trackTicketing) return;
-
-    const duration = endTime - startTime;
-    this.measures.set('ticket_purchase_time', duration);
-    
-    console.log(`🎫 Ticket Purchase Performance: ${duration}ms`);
-    
-    // Alert if performance is poor
-    if (duration > 5000) {
-      console.warn(`⚠️ Slow ticket purchase detected: ${duration}ms`);
+    this.metrics.ticketPurchaseTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Ticket purchase took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
     }
   }
 
-  /**
-   * Track QR validation performance
-   */
-  trackQRValidation(startTime: number, endTime: number): void {
+  trackQRValidation(duration: number) {
     if (!this.config.trackQRValidation) return;
-
-    const duration = endTime - startTime;
-    this.measures.set('qr_validation_time', duration);
-    
-    console.log(`📱 QR Validation Performance: ${duration}ms`);
-    
-    // Alert if performance is poor
-    if (duration > 1000) {
-      console.warn(`⚠️ Slow QR validation detected: ${duration}ms`);
+    this.metrics.qrValidationTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`QR validation took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
     }
   }
 
-  /**
-   * Track payment processing performance
-   */
-  trackPaymentProcessing(startTime: number, endTime: number): void {
-    if (!this.config.trackPayments) return;
-
-    const duration = endTime - startTime;
-    this.measures.set('payment_processing_time', duration);
-    
-    console.log(`💳 Payment Processing Performance: ${duration}ms`);
-    
-    // Alert if performance is poor
-    if (duration > 3000) {
-      console.warn(`⚠️ Slow payment processing detected: ${duration}ms`);
-    }
-  }
-
-  /**
-   * Track database query performance
-   */
-  trackDatabaseQuery(queryName: string, startTime: number, endTime: number): void {
+  trackTicketListLoad(duration: number) {
     if (!this.config.trackTicketing) return;
-
-    const duration = endTime - startTime;
-    this.measures.set(`db_query_${queryName}`, duration);
-    
-    console.log(`🗄️ Database Query Performance (${queryName}): ${duration}ms`);
-    
-    // Alert if performance is poor
-    if (duration > 2000) {
-      console.warn(`⚠️ Slow database query detected (${queryName}): ${duration}ms`);
+    this.metrics.ticketListLoadTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Ticket list load took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
     }
   }
 
-  // ✅ ADDED: Organizer performance tracking methods
+  trackPaymentProcessing(duration: number) {
+    if (!this.config.trackPayments) return;
+    this.metrics.paymentProcessingTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Payment processing took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
+    }
+  }
+
+  trackDatabaseQuery(duration: number) {
+    this.metrics.databaseQueryTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Database query took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
+    }
+  }
+
+  // Organizer tracking methods
   trackOrganizerLoad(duration: number) {
-    this.organizerLoadTimes.push(duration);
-    this.metrics.organizerLoadTime = this.calculateAverage(this.organizerLoadTimes);
-    
-    if (this.config.trackOrganizers) {
-      console.log(`🏢 Organizer Load: ${duration.toFixed(2)}ms`);
+    if (!this.config.trackOrganizers) return;
+    this.metrics.organizerLoadTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Organizer load took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
     }
   }
 
   trackOrganizerEventsLoad(duration: number) {
-    this.organizerEventsLoadTimes.push(duration);
-    this.metrics.organizerEventsLoadTime = this.calculateAverage(this.organizerEventsLoadTimes);
-    
-    if (this.config.trackOrganizers) {
-      console.log(`📅 Organizer Events Load: ${duration.toFixed(2)}ms`);
+    if (!this.config.trackOrganizers) return;
+    this.metrics.organizerEventsLoadTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Organizer events load took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
     }
   }
 
   trackOrganizerFollowersLoad(duration: number) {
-    this.organizerFollowersLoadTimes.push(duration);
-    this.metrics.organizerFollowersLoadTime = this.calculateAverage(this.organizerFollowersLoadTimes);
-    
-    if (this.config.trackOrganizers) {
-      console.log(`👥 Organizer Followers Load: ${duration.toFixed(2)}ms`);
+    if (!this.config.trackOrganizers) return;
+    this.metrics.organizerFollowersLoadTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Organizer followers load took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
     }
   }
 
   trackEventOrganizerLoad(duration: number) {
-    this.eventOrganizerLoadTimes.push(duration);
-    this.metrics.eventOrganizerLoadTime = this.calculateAverage(this.eventOrganizerLoadTimes);
-    
-    if (this.config.trackOrganizers) {
-      console.log(`🎫 Event-Organizer Load: ${duration.toFixed(2)}ms`);
+    if (!this.config.trackOrganizers) return;
+    this.metrics.eventOrganizerLoadTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Event organizer load took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
     }
   }
 
   trackOrganizerSearch(duration: number) {
-    this.organizerSearchTimes.push(duration);
-    this.metrics.organizerSearchTime = this.calculateAverage(this.organizerSearchTimes);
-    
-    if (this.config.trackOrganizers) {
-      console.log(`🔍 Organizer Search: ${duration.toFixed(2)}ms`);
+    if (!this.config.trackOrganizers) return;
+    this.metrics.organizerSearchTime = duration;
+    if (duration > this.config.alertThreshold) {
+      this.alerts.push(`Organizer search took ${duration}ms (threshold: ${this.config.alertThreshold}ms)`);
     }
   }
 
-  /**
-   * Collect current performance metrics
-   */
-  async collectMetrics(): Promise<PerformanceMetrics> {
-    const metrics: PerformanceMetrics = {
-      loadTime: this.getLoadTime(),
-      renderTime: this.getRenderTime(),
-      memoryUsage: await this.getMemoryUsage(),
-      networkRequests: this.getNetworkRequests(),
-      errors: this.getErrorCount(),
-      fps: this.getFPS(),
-      batteryLevel: await this.getBatteryLevel(),
-      networkType: await this.getNetworkType(),
-      deviceInfo: await this.getDeviceInfo(),
-      timestamp: Date.now(),
-      // ✅ ADDED: Ticketing metrics
-      ticketPurchaseTime: this.measures.get('ticket_purchase_time') || 0,
-      qrValidationTime: this.measures.get('qr_validation_time') || 0,
-      ticketListLoadTime: this.measures.get('ticket_list_load_time') || 0,
-      paymentProcessingTime: this.measures.get('payment_processing_time') || 0,
-      databaseQueryTime: this.measures.get('db_query_total') || 0,
-      // ✅ ADDED: Organizer metrics
-      organizerLoadTime: this.metrics.organizerLoadTime || 0,
-      organizerEventsLoadTime: this.metrics.organizerEventsLoadTime || 0,
-      organizerFollowersLoadTime: this.metrics.organizerFollowersLoadTime || 0,
-      eventOrganizerLoadTime: this.metrics.eventOrganizerLoadTime || 0,
-      organizerSearchTime: this.metrics.organizerSearchTime || 0,
-    };
-
-    this.metrics.push(metrics);
-
-    // Keep only the latest metrics
-    if (this.metrics.length > this.config.maxMetrics) {
-      this.metrics = this.metrics.slice(-this.config.maxMetrics);
-    }
-
-    return metrics;
-  }
-
-  /**
-   * Get performance summary for ticketing operations
-   */
-  getTicketingPerformanceSummary(): {
-    averagePurchaseTime: number;
-    averageQRValidationTime: number;
-    averagePaymentTime: number;
-    averageQueryTime: number;
-    totalOperations: number;
-  } {
-    const ticketingMetrics = this.metrics.filter(m => 
-      m.ticketPurchaseTime > 0 || 
-      m.qrValidationTime > 0 || 
-      m.paymentProcessingTime > 0
-    );
-
-    if (ticketingMetrics.length === 0) {
-      return {
-        averagePurchaseTime: 0,
-        averageQRValidationTime: 0,
-        averagePaymentTime: 0,
-        averageQueryTime: 0,
-        totalOperations: 0,
-      };
-    }
-
-    const totalPurchaseTime = ticketingMetrics.reduce((sum, m) => sum + m.ticketPurchaseTime, 0);
-    const totalQRTime = ticketingMetrics.reduce((sum, m) => sum + m.qrValidationTime, 0);
-    const totalPaymentTime = ticketingMetrics.reduce((sum, m) => sum + m.paymentProcessingTime, 0);
-    const totalQueryTime = ticketingMetrics.reduce((sum, m) => sum + m.databaseQueryTime, 0);
-
+  // ✅ NEW: Get search performance summary
+  getSearchPerformanceSummary() {
     return {
-      averagePurchaseTime: totalPurchaseTime / ticketingMetrics.length,
-      averageQRValidationTime: totalQRTime / ticketingMetrics.length,
-      averagePaymentTime: totalPaymentTime / ticketingMetrics.length,
-      averageQueryTime: totalQueryTime / ticketingMetrics.length,
-      totalOperations: ticketingMetrics.length,
+      averageQueryTime: this.metrics.searchQueryTime,
+      averageResultsCount: this.metrics.searchResultsCount,
+      averageRelevanceScore: this.metrics.searchRelevanceScore,
+      averageSuggestionTime: this.metrics.searchSuggestionTime,
+      clickThroughRate: this.metrics.searchClickThroughRate,
+      zeroResultRate: this.metrics.searchZeroResultRate,
+      analyticsTime: this.metrics.searchAnalyticsTime,
+      performance: this.getSearchPerformanceGrade(),
     };
   }
 
-  /**
-   * Log performance summary
-   */
-  logPerformanceSummary(): void {
-    const summary = this.getTicketingPerformanceSummary();
-    
-    console.log('📊 Ticketing Performance Summary:');
-    console.log(`  🎫 Average Purchase Time: ${summary.averagePurchaseTime.toFixed(2)}ms`);
-    console.log(`  📱 Average QR Validation: ${summary.averageQRValidationTime.toFixed(2)}ms`);
-    console.log(`  💳 Average Payment Time: ${summary.averagePaymentTime.toFixed(2)}ms`);
-    console.log(`  🗄️ Average Query Time: ${summary.averageQueryTime.toFixed(2)}ms`);
-    console.log(`  📈 Total Operations: ${summary.totalOperations}`);
+  // ✅ NEW: Get search performance grade
+  private getSearchPerformanceGrade(): string {
+    const queryTime = this.metrics.searchQueryTime;
+    const suggestionTime = this.metrics.searchSuggestionTime;
+    const relevanceScore = this.metrics.searchRelevanceScore;
+    const zeroResultRate = this.metrics.searchZeroResultRate;
+
+    let score = 0;
+
+    // Query time scoring (40% weight)
+    if (queryTime < 200) score += 40;
+    else if (queryTime < 300) score += 30;
+    else if (queryTime < 500) score += 20;
+    else score += 10;
+
+    // Suggestion time scoring (20% weight)
+    if (suggestionTime < 200) score += 20;
+    else if (suggestionTime < 300) score += 15;
+    else if (suggestionTime < 500) score += 10;
+    else score += 5;
+
+    // Relevance score (25% weight)
+    if (relevanceScore > 0.8) score += 25;
+    else if (relevanceScore > 0.6) score += 20;
+    else if (relevanceScore > 0.4) score += 15;
+    else score += 10;
+
+    // Zero result rate (15% weight)
+    if (zeroResultRate < 5) score += 15;
+    else if (zeroResultRate < 10) score += 12;
+    else if (zeroResultRate < 15) score += 8;
+    else score += 5;
+
+    if (score >= 90) return 'A+';
+    if (score >= 80) return 'A';
+    if (score >= 70) return 'B+';
+    if (score >= 60) return 'B';
+    if (score >= 50) return 'C+';
+    if (score >= 40) return 'C';
+    return 'D';
   }
 
-  /**
-   * Get load time metrics
-   */
-  private getLoadTime(): number {
-    return this.measures.get('app_load_time') || 0;
-  }
-
-  /**
-   * Get render time metrics
-   */
-  private getRenderTime(): number {
-    return this.measures.get('render_time') || 0;
-  }
-
-  /**
-   * Get memory usage
-   */
-  private async getMemoryUsage(): Promise<number> {
-    if (!this.config.trackMemory) return 0;
-    
-    // Mock memory usage for now
-    return Math.random() * 100;
-  }
-
-  /**
-   * Get network request count
-   */
-  private getNetworkRequests(): number {
-    return this.measures.get('network_requests') || 0;
-  }
-
-  /**
-   * Get error count
-   */
-  private getErrorCount(): number {
-    return this.measures.get('error_count') || 0;
-  }
-
-  /**
-   * Get FPS
-   */
-  private getFPS(): number {
-    return this.measures.get('fps') || 60;
-  }
-
-  /**
-   * Get battery level
-   */
-  private async getBatteryLevel(): Promise<number> {
-    if (!this.config.trackBattery) return 0;
-    
-    // Mock battery level for now
-    return Math.random() * 100;
-  }
-
-  /**
-   * Get network type
-   */
-  private async getNetworkType(): Promise<string> {
-    if (!this.config.trackNetwork) return 'unknown';
-    
-    // Mock network type for now
-    return 'wifi';
-  }
-
-  /**
-   * Get device information
-   */
-  private async getDeviceInfo(): Promise<DeviceInfo> {
+  // Existing summary methods
+  getTicketingPerformanceSummary() {
     return {
-      platform: Platform.OS,
-      version: Platform.Version.toString(),
-      model: 'Unknown',
-      memory: 0,
-      cpu: 'Unknown',
+      averagePurchaseTime: this.metrics.ticketPurchaseTime,
+      averageQRValidationTime: this.metrics.qrValidationTime,
+      averageListLoadTime: this.metrics.ticketListLoadTime,
+      averagePaymentTime: this.metrics.paymentProcessingTime,
+      averageQueryTime: this.metrics.databaseQueryTime,
+      performance: this.getTicketingPerformanceGrade(),
     };
   }
 
-  /**
-   * Observe navigation performance
-   */
-  private observeNavigation(): void {
-    // This would observe navigation state changes
-    // and measure navigation performance
-  }
-
-  /**
-   * Observe render performance
-   */
-  private observeRenders(): void {
-    // This would observe component render times
-    // and measure render performance
-  }
-
-  /**
-   * Observe network performance
-   */
-  private observeNetwork(): void {
-    // This would observe network requests
-    // and measure network performance
-  }
-
-  /**
-   * Observe memory usage
-   */
-  private observeMemory(): void {
-    // This would observe memory usage changes
-    // and measure memory performance
-  }
-
-  /**
-   * Upload metrics to analytics service
-   */
-  private async uploadMetrics(): Promise<void> {
-    if (!this.config.enabled || this.metrics.length === 0) return;
-
-    try {
-      const metricsToUpload = [...this.metrics];
-      this.metrics = []; // Clear uploaded metrics
-
-      // Upload to analytics service
-      await this.sendToAnalytics(metricsToUpload);
-      
-      console.log(`Uploaded ${metricsToUpload.length} performance metrics`);
-    } catch (error) {
-      console.error('Failed to upload performance metrics:', error);
-      
-      // Restore metrics for retry
-      this.metrics.unshift(...this.metrics);
-    }
-  }
-
-  /**
-   * Send metrics to analytics service
-   */
-  private async sendToAnalytics(metrics: PerformanceMetrics[]): Promise<void> {
-    // Implement analytics service integration here
-    // Example with Firebase Analytics:
-    // await analytics.logEvent('performance_metrics', {
-    //   metrics: JSON.stringify(metrics)
-    // });
-    
-    console.log('Performance metrics would be sent to analytics:', metrics.length);
-  }
-
-  /**
-   * Get performance report
-   */
-  getReport(): {
-    metrics: PerformanceMetrics[];
-    summary: {
-      averageLoadTime: number;
-      averageRenderTime: number;
-      averageMemoryUsage: number;
-      totalErrors: number;
-      averageFPS: number;
-    };
-  } {
-    if (this.metrics.length === 0) {
-      return {
-        metrics: [],
-        summary: {
-          averageLoadTime: 0,
-          averageRenderTime: 0,
-          averageMemoryUsage: 0,
-          totalErrors: 0,
-          averageFPS: 0
-        }
-      };
-    }
-
-    const summary = {
-      averageLoadTime: this.average(this.metrics.map(m => m.loadTime)),
-      averageRenderTime: this.average(this.metrics.map(m => m.renderTime)),
-      averageMemoryUsage: this.average(this.metrics.map(m => m.memoryUsage)),
-      totalErrors: this.metrics.reduce((sum, m) => sum + m.errors, 0),
-      averageFPS: this.average(this.metrics.map(m => m.fps))
-    };
-
-    return {
-      metrics: [...this.metrics],
-      summary
-    };
-  }
-
-  /**
-   * Calculate average of numbers
-   */
-  private average(numbers: number[]): number {
-    if (numbers.length === 0) return 0;
-    return numbers.reduce((sum, num) => sum + num, 0) / numbers.length;
-  }
-
-  /**
-   * Calculate average of numbers
-   */
-  private calculateAverage(numbers: number[]): number {
-    if (numbers.length === 0) return 0;
-    return numbers.reduce((sum, num) => sum + num, 0) / numbers.length;
-  }
-
-  /**
-   * Start periodic collection of performance metrics
-   */
-  private startPeriodicCollection(): void {
-    if (this.uploadTimer) {
-      clearInterval(this.uploadTimer);
-    }
-
-    this.uploadTimer = setInterval(async () => {
-      if (Math.random() < this.config.sampleRate) {
-        await this.collectMetrics();
-      }
-    }, this.config.uploadInterval);
-  }
-
-  private initializeObservers(): void {
-    // Initialize performance observers for web
-    if (Platform.OS === 'web') {
-      // Add web-specific observers here
-    }
-  }
-
-  /**
-   * Clean up resources
-   */
-  destroy(): void {
-    if (this.uploadTimer) {
-      clearInterval(this.uploadTimer);
-      this.uploadTimer = null;
-    }
-
-    this.observers.forEach(observer => observer.disconnect());
-    this.observers = [];
-    this.metrics = [];
-    this.marks.clear();
-    this.measures.clear();
-    // ✅ CLEAN UP Organizer performance tracking properties
-    this.organizerLoadTimes = [];
-    this.organizerEventsLoadTimes = [];
-    this.organizerFollowersLoadTimes = [];
-    this.eventOrganizerLoadTimes = [];
-    this.organizerSearchTimes = [];
-  }
-
-  /**
-   * Update configuration
-   */
-  updateConfig(newConfig: Partial<PerformanceConfig>): void {
-    this.config = { ...this.config, ...newConfig };
-  }
-
-  /**
-   * Enable/disable performance monitoring
-   */
-  setEnabled(enabled: boolean): void {
-    this.config.enabled = enabled;
-    
-    if (!enabled) {
-      this.destroy();
-    } else if (!this.isInitialized) {
-      this.initialize();
-    }
-  }
-
-  // ✅ ADDED: Organizer performance summary
   getOrganizerPerformanceSummary() {
     return {
-      organizerLoad: {
-        average: this.metrics.organizerLoadTime,
-        samples: this.organizerLoadTimes.length,
-        recent: this.organizerLoadTimes.slice(-5),
-      },
-      organizerEvents: {
-        average: this.metrics.organizerEventsLoadTime,
-        samples: this.organizerEventsLoadTimes.length,
-        recent: this.organizerEventsLoadTimes.slice(-5),
-      },
-      organizerFollowers: {
-        average: this.metrics.organizerFollowersLoadTime,
-        samples: this.organizerFollowersLoadTimes.length,
-        recent: this.organizerFollowersLoadTimes.slice(-5),
-      },
-      eventOrganizer: {
-        average: this.metrics.eventOrganizerLoadTime,
-        samples: this.eventOrganizerLoadTimes.length,
-        recent: this.eventOrganizerLoadTimes.slice(-5),
-      },
-      organizerSearch: {
-        average: this.metrics.organizerSearchTime,
-        samples: this.organizerSearchTimes.length,
-        recent: this.organizerSearchTimes.slice(-5),
-      },
+      averageLoadTime: this.metrics.organizerLoadTime,
+      averageEventsLoadTime: this.metrics.organizerEventsLoadTime,
+      averageFollowersLoadTime: this.metrics.organizerFollowersLoadTime,
+      averageEventOrganizerLoadTime: this.metrics.eventOrganizerLoadTime,
+      averageSearchTime: this.metrics.organizerSearchTime,
+      performance: this.getOrganizerPerformanceGrade(),
     };
   }
 
-  // ✅ ADDED: Log organizer performance summary
+  private getTicketingPerformanceGrade(): string {
+    const purchaseTime = this.metrics.ticketPurchaseTime;
+    const qrTime = this.metrics.qrValidationTime;
+    const listTime = this.metrics.ticketListLoadTime;
+    const paymentTime = this.metrics.paymentProcessingTime;
+
+    let score = 0;
+
+    if (purchaseTime < 2000) score += 25;
+    else if (purchaseTime < 3000) score += 20;
+    else if (purchaseTime < 5000) score += 15;
+    else score += 10;
+
+    if (qrTime < 500) score += 25;
+    else if (qrTime < 1000) score += 20;
+    else if (qrTime < 2000) score += 15;
+    else score += 10;
+
+    if (listTime < 500) score += 25;
+    else if (listTime < 1000) score += 20;
+    else if (listTime < 2000) score += 15;
+    else score += 10;
+
+    if (paymentTime < 3000) score += 25;
+    else if (paymentTime < 5000) score += 20;
+    else if (paymentTime < 8000) score += 15;
+    else score += 10;
+
+    if (score >= 90) return 'A+';
+    if (score >= 80) return 'A';
+    if (score >= 70) return 'B+';
+    if (score >= 60) return 'B';
+    if (score >= 50) return 'C+';
+    if (score >= 40) return 'C';
+    return 'D';
+  }
+
+  private getOrganizerPerformanceGrade(): string {
+    const loadTime = this.metrics.organizerLoadTime;
+    const eventsTime = this.metrics.organizerEventsLoadTime;
+    const followersTime = this.metrics.organizerFollowersLoadTime;
+    const eventOrgTime = this.metrics.eventOrganizerLoadTime;
+    const searchTime = this.metrics.organizerSearchTime;
+
+    let score = 0;
+
+    if (loadTime < 500) score += 20;
+    else if (loadTime < 1000) score += 16;
+    else if (loadTime < 2000) score += 12;
+    else score += 8;
+
+    if (eventsTime < 500) score += 20;
+    else if (eventsTime < 1000) score += 16;
+    else if (eventsTime < 2000) score += 12;
+    else score += 8;
+
+    if (followersTime < 500) score += 20;
+    else if (followersTime < 1000) score += 16;
+    else if (followersTime < 2000) score += 12;
+    else score += 8;
+
+    if (eventOrgTime < 500) score += 20;
+    else if (eventOrgTime < 1000) score += 16;
+    else if (eventOrgTime < 2000) score += 12;
+    else score += 8;
+
+    if (searchTime < 300) score += 20;
+    else if (searchTime < 500) score += 16;
+    else if (searchTime < 1000) score += 12;
+    else score += 8;
+
+    if (score >= 90) return 'A+';
+    if (score >= 80) return 'A';
+    if (score >= 70) return 'B+';
+    if (score >= 60) return 'B';
+    if (score >= 50) return 'C+';
+    if (score >= 40) return 'C';
+    return 'D';
+  }
+
+  // ✅ NEW: Log search performance summary
+  logSearchPerformanceSummary() {
+    if (!this.config.logToConsole) return;
+
+    const summary = this.getSearchPerformanceSummary();
+    console.log('🔍 SEARCH PERFORMANCE SUMMARY');
+    console.log('================================');
+    console.log(`Query Time: ${summary.averageQueryTime}ms`);
+    console.log(`Results Count: ${summary.averageResultsCount}`);
+    console.log(`Relevance Score: ${summary.averageRelevanceScore.toFixed(2)}`);
+    console.log(`Suggestion Time: ${summary.averageSuggestionTime}ms`);
+    console.log(`Click-Through Rate: ${summary.clickThroughRate.toFixed(2)}%`);
+    console.log(`Zero Result Rate: ${summary.zeroResultRate.toFixed(2)}%`);
+    console.log(`Analytics Time: ${summary.analyticsTime}ms`);
+    console.log(`Performance Grade: ${summary.performance}`);
+    console.log('================================');
+  }
+
+  // Existing logging methods
+  logTicketingPerformanceSummary() {
+    if (!this.config.logToConsole) return;
+
+    const summary = this.getTicketingPerformanceSummary();
+    console.log('🎫 TICKETING PERFORMANCE SUMMARY');
+    console.log('================================');
+    console.log(`Purchase Time: ${summary.averagePurchaseTime}ms`);
+    console.log(`QR Validation: ${summary.averageQRValidationTime}ms`);
+    console.log(`List Load: ${summary.averageListLoadTime}ms`);
+    console.log(`Payment Processing: ${summary.averagePaymentTime}ms`);
+    console.log(`Database Query: ${summary.averageQueryTime}ms`);
+    console.log(`Performance Grade: ${summary.performance}`);
+    console.log('================================');
+  }
+
   logOrganizerPerformanceSummary() {
+    if (!this.config.logToConsole) return;
+
     const summary = this.getOrganizerPerformanceSummary();
-    
-    console.log('🏢 ORGANIZER PERFORMANCE SUMMARY:');
-    console.log('=====================================');
-    console.log(`📊 Organizer Load: ${summary.organizerLoad.average.toFixed(2)}ms (${summary.organizerLoad.samples} samples)`);
-    console.log(`📅 Organizer Events: ${summary.organizerEvents.average.toFixed(2)}ms (${summary.organizerEvents.samples} samples)`);
-    console.log(`👥 Organizer Followers: ${summary.organizerFollowers.average.toFixed(2)}ms (${summary.organizerFollowers.samples} samples)`);
-    console.log(`🎫 Event-Organizer: ${summary.eventOrganizer.average.toFixed(2)}ms (${summary.eventOrganizer.samples} samples)`);
-    console.log(`🔍 Organizer Search: ${summary.organizerSearch.average.toFixed(2)}ms (${summary.organizerSearch.samples} samples)`);
-    console.log('=====================================');
+    console.log('🏢 ORGANIZER PERFORMANCE SUMMARY');
+    console.log('================================');
+    console.log(`Load Time: ${summary.averageLoadTime}ms`);
+    console.log(`Events Load: ${summary.averageEventsLoadTime}ms`);
+    console.log(`Followers Load: ${summary.averageFollowersLoadTime}ms`);
+    console.log(`Event Organizer Load: ${summary.averageEventOrganizerLoadTime}ms`);
+    console.log(`Search Time: ${summary.averageSearchTime}ms`);
+    console.log(`Performance Grade: ${summary.performance}`);
+    console.log('================================');
+  }
+
+  getAlerts(): string[] {
+    return [...this.alerts];
+  }
+
+  clearAlerts(): void {
+    this.alerts = [];
+  }
+
+  getMetrics(): PerformanceMetrics {
+    return { ...this.metrics };
+  }
+
+  resetMetrics(): void {
+    this.metrics = this.initializeMetrics();
   }
 }
 
-// ✅ ADDED: Singleton instance for easy access
+// ✅ OPTIMIZED: Export configured instance with search tracking
 export const performanceMonitor = new PerformanceMonitor({
-  enabled: __DEV__, // Only enable in development
+  enabled: __DEV__,
   trackTicketing: true,
   trackPayments: true,
   trackQRValidation: true,
-  trackOrganizers: true, // ✅ ADDED: Enable organizer tracking
+  trackOrganizers: true,
+  trackSearch: true, // ✅ NEW: Enable search tracking
+  alertThreshold: 1000,
+  logToConsole: __DEV__,
 });
-
-// ✅ ADDED: Organizer performance tracking methods
-export const trackOrganizerLoad = (duration: number) => {
-  performanceMonitor.trackOrganizerLoad(duration);
-};
-
-export const trackOrganizerEventsLoad = (duration: number) => {
-  performanceMonitor.trackOrganizerEventsLoad(duration);
-};
-
-export const trackOrganizerFollowersLoad = (duration: number) => {
-  performanceMonitor.trackOrganizerFollowersLoad(duration);
-};
-
-export const trackEventOrganizerLoad = (duration: number) => {
-  performanceMonitor.trackEventOrganizerLoad(duration);
-};
-
-export const trackOrganizerSearch = (duration: number) => {
-  performanceMonitor.trackOrganizerSearch(duration);
-};
-
-export default PerformanceMonitor;
