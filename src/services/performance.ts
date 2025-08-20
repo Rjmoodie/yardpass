@@ -18,6 +18,12 @@ export interface PerformanceMetrics {
   ticketListLoadTime: number;
   paymentProcessingTime: number;
   databaseQueryTime: number;
+  // ✅ ADDED: Organizer-specific metrics
+  organizerLoadTime: number;
+  organizerEventsLoadTime: number;
+  organizerFollowersLoadTime: number;
+  eventOrganizerLoadTime: number;
+  organizerSearchTime: number;
 }
 
 export interface DeviceInfo {
@@ -41,6 +47,8 @@ export interface PerformanceConfig {
   trackTicketing: boolean;
   trackPayments: boolean;
   trackQRValidation: boolean;
+  // ✅ ADDED: Organizer-specific config
+  trackOrganizers: boolean;
 }
 
 class PerformanceMonitor {
@@ -51,6 +59,13 @@ class PerformanceMonitor {
   private observers: PerformanceObserver[] = [];
   private uploadTimer: NodeJS.Timeout | null = null;
   private isInitialized = false;
+
+  // ✅ ADDED: Organizer performance tracking properties
+  private organizerLoadTimes: number[] = [];
+  private organizerEventsLoadTimes: number[] = [];
+  private organizerFollowersLoadTimes: number[] = [];
+  private eventOrganizerLoadTimes: number[] = [];
+  private organizerSearchTimes: number[] = [];
 
   constructor(config: Partial<PerformanceConfig> = {}) {
     this.config = {
@@ -65,6 +80,7 @@ class PerformanceMonitor {
       trackTicketing: true, // ✅ ADDED: Track ticketing performance
       trackPayments: true,
       trackQRValidation: true,
+      trackOrganizers: true, // ✅ ADDED: Enable organizer tracking
       ...config
     };
   }
@@ -195,6 +211,52 @@ class PerformanceMonitor {
     }
   }
 
+  // ✅ ADDED: Organizer performance tracking methods
+  trackOrganizerLoad(duration: number) {
+    this.organizerLoadTimes.push(duration);
+    this.metrics.organizerLoadTime = this.calculateAverage(this.organizerLoadTimes);
+    
+    if (this.config.trackOrganizers) {
+      console.log(`🏢 Organizer Load: ${duration.toFixed(2)}ms`);
+    }
+  }
+
+  trackOrganizerEventsLoad(duration: number) {
+    this.organizerEventsLoadTimes.push(duration);
+    this.metrics.organizerEventsLoadTime = this.calculateAverage(this.organizerEventsLoadTimes);
+    
+    if (this.config.trackOrganizers) {
+      console.log(`📅 Organizer Events Load: ${duration.toFixed(2)}ms`);
+    }
+  }
+
+  trackOrganizerFollowersLoad(duration: number) {
+    this.organizerFollowersLoadTimes.push(duration);
+    this.metrics.organizerFollowersLoadTime = this.calculateAverage(this.organizerFollowersLoadTimes);
+    
+    if (this.config.trackOrganizers) {
+      console.log(`👥 Organizer Followers Load: ${duration.toFixed(2)}ms`);
+    }
+  }
+
+  trackEventOrganizerLoad(duration: number) {
+    this.eventOrganizerLoadTimes.push(duration);
+    this.metrics.eventOrganizerLoadTime = this.calculateAverage(this.eventOrganizerLoadTimes);
+    
+    if (this.config.trackOrganizers) {
+      console.log(`🎫 Event-Organizer Load: ${duration.toFixed(2)}ms`);
+    }
+  }
+
+  trackOrganizerSearch(duration: number) {
+    this.organizerSearchTimes.push(duration);
+    this.metrics.organizerSearchTime = this.calculateAverage(this.organizerSearchTimes);
+    
+    if (this.config.trackOrganizers) {
+      console.log(`🔍 Organizer Search: ${duration.toFixed(2)}ms`);
+    }
+  }
+
   /**
    * Collect current performance metrics
    */
@@ -216,6 +278,12 @@ class PerformanceMonitor {
       ticketListLoadTime: this.measures.get('ticket_list_load_time') || 0,
       paymentProcessingTime: this.measures.get('payment_processing_time') || 0,
       databaseQueryTime: this.measures.get('db_query_total') || 0,
+      // ✅ ADDED: Organizer metrics
+      organizerLoadTime: this.metrics.organizerLoadTime || 0,
+      organizerEventsLoadTime: this.metrics.organizerEventsLoadTime || 0,
+      organizerFollowersLoadTime: this.metrics.organizerFollowersLoadTime || 0,
+      eventOrganizerLoadTime: this.metrics.eventOrganizerLoadTime || 0,
+      organizerSearchTime: this.metrics.organizerSearchTime || 0,
     };
 
     this.metrics.push(metrics);
@@ -476,6 +544,14 @@ class PerformanceMonitor {
   }
 
   /**
+   * Calculate average of numbers
+   */
+  private calculateAverage(numbers: number[]): number {
+    if (numbers.length === 0) return 0;
+    return numbers.reduce((sum, num) => sum + num, 0) / numbers.length;
+  }
+
+  /**
    * Start periodic collection of performance metrics
    */
   private startPeriodicCollection(): void {
@@ -511,6 +587,12 @@ class PerformanceMonitor {
     this.metrics = [];
     this.marks.clear();
     this.measures.clear();
+    // ✅ CLEAN UP Organizer performance tracking properties
+    this.organizerLoadTimes = [];
+    this.organizerEventsLoadTimes = [];
+    this.organizerFollowersLoadTimes = [];
+    this.eventOrganizerLoadTimes = [];
+    this.organizerSearchTimes = [];
   }
 
   /**
@@ -532,6 +614,51 @@ class PerformanceMonitor {
       this.initialize();
     }
   }
+
+  // ✅ ADDED: Organizer performance summary
+  getOrganizerPerformanceSummary() {
+    return {
+      organizerLoad: {
+        average: this.metrics.organizerLoadTime,
+        samples: this.organizerLoadTimes.length,
+        recent: this.organizerLoadTimes.slice(-5),
+      },
+      organizerEvents: {
+        average: this.metrics.organizerEventsLoadTime,
+        samples: this.organizerEventsLoadTimes.length,
+        recent: this.organizerEventsLoadTimes.slice(-5),
+      },
+      organizerFollowers: {
+        average: this.metrics.organizerFollowersLoadTime,
+        samples: this.organizerFollowersLoadTimes.length,
+        recent: this.organizerFollowersLoadTimes.slice(-5),
+      },
+      eventOrganizer: {
+        average: this.metrics.eventOrganizerLoadTime,
+        samples: this.eventOrganizerLoadTimes.length,
+        recent: this.eventOrganizerLoadTimes.slice(-5),
+      },
+      organizerSearch: {
+        average: this.metrics.organizerSearchTime,
+        samples: this.organizerSearchTimes.length,
+        recent: this.organizerSearchTimes.slice(-5),
+      },
+    };
+  }
+
+  // ✅ ADDED: Log organizer performance summary
+  logOrganizerPerformanceSummary() {
+    const summary = this.getOrganizerPerformanceSummary();
+    
+    console.log('🏢 ORGANIZER PERFORMANCE SUMMARY:');
+    console.log('=====================================');
+    console.log(`📊 Organizer Load: ${summary.organizerLoad.average.toFixed(2)}ms (${summary.organizerLoad.samples} samples)`);
+    console.log(`📅 Organizer Events: ${summary.organizerEvents.average.toFixed(2)}ms (${summary.organizerEvents.samples} samples)`);
+    console.log(`👥 Organizer Followers: ${summary.organizerFollowers.average.toFixed(2)}ms (${summary.organizerFollowers.samples} samples)`);
+    console.log(`🎫 Event-Organizer: ${summary.eventOrganizer.average.toFixed(2)}ms (${summary.eventOrganizer.samples} samples)`);
+    console.log(`🔍 Organizer Search: ${summary.organizerSearch.average.toFixed(2)}ms (${summary.organizerSearch.samples} samples)`);
+    console.log('=====================================');
+  }
 }
 
 // ✅ ADDED: Singleton instance for easy access
@@ -540,6 +667,28 @@ export const performanceMonitor = new PerformanceMonitor({
   trackTicketing: true,
   trackPayments: true,
   trackQRValidation: true,
+  trackOrganizers: true, // ✅ ADDED: Enable organizer tracking
 });
+
+// ✅ ADDED: Organizer performance tracking methods
+export const trackOrganizerLoad = (duration: number) => {
+  performanceMonitor.trackOrganizerLoad(duration);
+};
+
+export const trackOrganizerEventsLoad = (duration: number) => {
+  performanceMonitor.trackOrganizerEventsLoad(duration);
+};
+
+export const trackOrganizerFollowersLoad = (duration: number) => {
+  performanceMonitor.trackOrganizerFollowersLoad(duration);
+};
+
+export const trackEventOrganizerLoad = (duration: number) => {
+  performanceMonitor.trackEventOrganizerLoad(duration);
+};
+
+export const trackOrganizerSearch = (duration: number) => {
+  performanceMonitor.trackOrganizerSearch(duration);
+};
 
 export default PerformanceMonitor;

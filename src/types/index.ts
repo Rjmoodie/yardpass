@@ -1076,6 +1076,8 @@ export interface OrganizersState {
   followedOrganizers: Organizer[];
   isLoading: boolean;
   error: string | null;
+  _cachedAt: number; // Cache timestamp for optimization
+  _lastUpdated: number; // Last update timestamp
 }
 
 export interface CampaignsState {

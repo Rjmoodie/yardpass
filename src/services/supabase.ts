@@ -36,14 +36,12 @@ export const TABLES = {
   TICKETS: 'tickets',
   TICKETS_OWNED: 'tickets_owned', // ✅ ADDED: Support for optimized queries
   ORDERS: 'orders',
-  POSTS: 'posts',
-  COMMENTS: 'comments',
-  REACTIONS: 'reactions',
   ORGANIZERS: 'organizers',
+  ORGS: 'orgs',
+  ORG_MEMBERS: 'org_members',
   ORGANIZER_FOLLOWS: 'organizer_follows',
-  MEDIA_ASSETS: 'media_assets',
-  CAMPAIGNS: 'campaigns',
-  CHECKINS: 'checkins',
+  POSTS: 'posts',
+  LOCATIONS: 'locations',
 } as const;
 
 // Real-time channels

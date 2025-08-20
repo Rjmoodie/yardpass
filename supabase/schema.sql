@@ -232,6 +232,21 @@ CREATE INDEX idx_tickets_owned_user_status ON public.tickets_owned(user_id, is_u
 CREATE INDEX idx_orders_user_created ON public.orders(user_id, created_at DESC);
 CREATE INDEX idx_tickets_event_price ON public.tickets(event_id, price);
 
+-- Critical indexes for organizer performance
+CREATE INDEX idx_events_organizer_status ON public.events(org_id, status);
+CREATE INDEX idx_events_organizer_start ON public.events(org_id, start_at);
+CREATE INDEX idx_events_organizer_created ON public.events(org_id, created_at DESC);
+CREATE INDEX idx_orgs_verified ON public.orgs(is_verified);
+CREATE INDEX idx_orgs_created ON public.orgs(created_at DESC);
+CREATE INDEX idx_org_members_org ON public.org_members(org_id);
+CREATE INDEX idx_org_members_user ON public.org_members(user_id);
+CREATE INDEX idx_org_members_role ON public.org_members(org_id, role);
+
+-- Composite indexes for complex organizer queries
+CREATE INDEX idx_events_org_status_start ON public.events(org_id, status, start_at);
+CREATE INDEX idx_events_org_visibility_status ON public.events(org_id, visibility, status);
+CREATE INDEX idx_org_members_org_role ON public.org_members(org_id, role);
+
 -- Row Level Security (RLS) Policies
 
 -- Enable RLS on all tables
