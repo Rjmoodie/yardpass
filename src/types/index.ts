@@ -1,6 +1,56 @@
 // Enhanced Types with Engineering Best Practices
 // Addressing flaws from reference repositories
 
+// Reference Tables (from backend updates)
+export interface EventCategoryData {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  icon_url?: string;
+  color_hex?: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventTag {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  usage_count: number;
+  is_trending: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Analytics Tables (from backend updates)
+export interface UserAnalytics {
+  id: string;
+  user_id: string;
+  event_id?: string;
+  action_type: string;
+  metadata: Record<string, any>;
+  created_at: string;
+  
+  // Computed fields
+  user?: User;
+  event?: Event;
+}
+
+export interface EventAnalytics {
+  id: string;
+  event_id: string;
+  metric_type: string;
+  metric_value?: number;
+  metadata: Record<string, any>;
+  created_at: string;
+  
+  // Computed fields
+  event?: Event;
+}
+
 // Missing Type Definitions
 export interface PrivacySettings {
   profileVisibility: 'public' | 'private' | 'friends';
