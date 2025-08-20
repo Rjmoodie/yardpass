@@ -12,16 +12,20 @@ export interface PerformanceMetrics {
   networkType: string;
   deviceInfo: DeviceInfo;
   timestamp: number;
+  // ✅ ADDED: Ticketing-specific metrics
+  ticketPurchaseTime: number;
+  qrValidationTime: number;
+  ticketListLoadTime: number;
+  paymentProcessingTime: number;
+  databaseQueryTime: number;
 }
 
 export interface DeviceInfo {
   platform: string;
   version: string;
   model: string;
-  screenWidth: number;
-  screenHeight: number;
   memory: number;
-  cpuCores: number;
+  cpu: string;
 }
 
 export interface PerformanceConfig {
@@ -33,6 +37,10 @@ export interface PerformanceConfig {
   trackMemory: boolean;
   trackBattery: boolean;
   trackNetwork: boolean;
+  // ✅ ADDED: Ticketing-specific config
+  trackTicketing: boolean;
+  trackPayments: boolean;
+  trackQRValidation: boolean;
 }
 
 class PerformanceMonitor {
@@ -54,6 +62,9 @@ class PerformanceMonitor {
       trackMemory: true,
       trackBattery: true,
       trackNetwork: true,
+      trackTicketing: true, // ✅ ADDED: Track ticketing performance
+      trackPayments: true,
+      trackQRValidation: true,
       ...config
     };
   }
@@ -64,64 +75,17 @@ class PerformanceMonitor {
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
-    try {
-      // Set up performance observers
-      this.setupObservers();
-      
-      // Start periodic metrics collection
+    if (this.config.enabled) {
+      // Start periodic metric collection
       this.startPeriodicCollection();
       
-      // Start upload timer
-      this.startUploadTimer();
-      
-      this.isInitialized = true;
-      console.log('Performance monitor initialized');
-    } catch (error) {
-      console.error('Failed to initialize performance monitor:', error);
+      // Initialize observers if supported
+      if (Platform.OS === 'web' && typeof PerformanceObserver !== 'undefined') {
+        this.initializeObservers();
+      }
     }
-  }
 
-  /**
-   * Set up performance observers for automatic metrics collection
-   */
-  private setupObservers(): void {
-    if (!this.config.enabled) return;
-
-    // Observe navigation performance
-    this.observeNavigation();
-    
-    // Observe render performance
-    this.observeRenders();
-    
-    // Observe network performance
-    this.observeNetwork();
-    
-    // Observe memory usage
-    if (this.config.trackMemory) {
-      this.observeMemory();
-    }
-  }
-
-  /**
-   * Start periodic collection of performance metrics
-   */
-  private startPeriodicCollection(): void {
-    if (!this.config.enabled || !this.config.enableRealTime) return;
-
-    setInterval(() => {
-      this.collectMetrics();
-    }, 5000); // Collect every 5 seconds
-  }
-
-  /**
-   * Start timer for uploading metrics
-   */
-  private startUploadTimer(): void {
-    if (!this.config.enabled) return;
-
-    this.uploadTimer = setInterval(() => {
-      this.uploadMetrics();
-    }, this.config.uploadInterval);
+    this.isInitialized = true;
   }
 
   /**
@@ -130,7 +94,7 @@ class PerformanceMonitor {
   mark(name: string): void {
     if (!this.config.enabled) return;
 
-    const timestamp = performance.now();
+    const timestamp = Date.now();
     this.marks.set(name, timestamp);
     
     if (Platform.OS === 'web') {
@@ -162,6 +126,75 @@ class PerformanceMonitor {
     return duration;
   }
 
+  // ✅ ADDED: Ticketing-specific performance tracking
+  /**
+   * Track ticket purchase performance
+   */
+  trackTicketPurchase(startTime: number, endTime: number): void {
+    if (!this.config.trackTicketing) return;
+
+    const duration = endTime - startTime;
+    this.measures.set('ticket_purchase_time', duration);
+    
+    console.log(`🎫 Ticket Purchase Performance: ${duration}ms`);
+    
+    // Alert if performance is poor
+    if (duration > 5000) {
+      console.warn(`⚠️ Slow ticket purchase detected: ${duration}ms`);
+    }
+  }
+
+  /**
+   * Track QR validation performance
+   */
+  trackQRValidation(startTime: number, endTime: number): void {
+    if (!this.config.trackQRValidation) return;
+
+    const duration = endTime - startTime;
+    this.measures.set('qr_validation_time', duration);
+    
+    console.log(`📱 QR Validation Performance: ${duration}ms`);
+    
+    // Alert if performance is poor
+    if (duration > 1000) {
+      console.warn(`⚠️ Slow QR validation detected: ${duration}ms`);
+    }
+  }
+
+  /**
+   * Track payment processing performance
+   */
+  trackPaymentProcessing(startTime: number, endTime: number): void {
+    if (!this.config.trackPayments) return;
+
+    const duration = endTime - startTime;
+    this.measures.set('payment_processing_time', duration);
+    
+    console.log(`💳 Payment Processing Performance: ${duration}ms`);
+    
+    // Alert if performance is poor
+    if (duration > 3000) {
+      console.warn(`⚠️ Slow payment processing detected: ${duration}ms`);
+    }
+  }
+
+  /**
+   * Track database query performance
+   */
+  trackDatabaseQuery(queryName: string, startTime: number, endTime: number): void {
+    if (!this.config.trackTicketing) return;
+
+    const duration = endTime - startTime;
+    this.measures.set(`db_query_${queryName}`, duration);
+    
+    console.log(`🗄️ Database Query Performance (${queryName}): ${duration}ms`);
+    
+    // Alert if performance is poor
+    if (duration > 2000) {
+      console.warn(`⚠️ Slow database query detected (${queryName}): ${duration}ms`);
+    }
+  }
+
   /**
    * Collect current performance metrics
    */
@@ -170,13 +203,19 @@ class PerformanceMonitor {
       loadTime: this.getLoadTime(),
       renderTime: this.getRenderTime(),
       memoryUsage: await this.getMemoryUsage(),
-      networkRequests: this.getNetworkRequestCount(),
+      networkRequests: this.getNetworkRequests(),
       errors: this.getErrorCount(),
-      fps: await this.getFPS(),
+      fps: this.getFPS(),
       batteryLevel: await this.getBatteryLevel(),
       networkType: await this.getNetworkType(),
       deviceInfo: await this.getDeviceInfo(),
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      // ✅ ADDED: Ticketing metrics
+      ticketPurchaseTime: this.measures.get('ticket_purchase_time') || 0,
+      qrValidationTime: this.measures.get('qr_validation_time') || 0,
+      ticketListLoadTime: this.measures.get('ticket_list_load_time') || 0,
+      paymentProcessingTime: this.measures.get('payment_processing_time') || 0,
+      databaseQueryTime: this.measures.get('db_query_total') || 0,
     };
 
     this.metrics.push(metrics);
@@ -190,31 +229,71 @@ class PerformanceMonitor {
   }
 
   /**
+   * Get performance summary for ticketing operations
+   */
+  getTicketingPerformanceSummary(): {
+    averagePurchaseTime: number;
+    averageQRValidationTime: number;
+    averagePaymentTime: number;
+    averageQueryTime: number;
+    totalOperations: number;
+  } {
+    const ticketingMetrics = this.metrics.filter(m => 
+      m.ticketPurchaseTime > 0 || 
+      m.qrValidationTime > 0 || 
+      m.paymentProcessingTime > 0
+    );
+
+    if (ticketingMetrics.length === 0) {
+      return {
+        averagePurchaseTime: 0,
+        averageQRValidationTime: 0,
+        averagePaymentTime: 0,
+        averageQueryTime: 0,
+        totalOperations: 0,
+      };
+    }
+
+    const totalPurchaseTime = ticketingMetrics.reduce((sum, m) => sum + m.ticketPurchaseTime, 0);
+    const totalQRTime = ticketingMetrics.reduce((sum, m) => sum + m.qrValidationTime, 0);
+    const totalPaymentTime = ticketingMetrics.reduce((sum, m) => sum + m.paymentProcessingTime, 0);
+    const totalQueryTime = ticketingMetrics.reduce((sum, m) => sum + m.databaseQueryTime, 0);
+
+    return {
+      averagePurchaseTime: totalPurchaseTime / ticketingMetrics.length,
+      averageQRValidationTime: totalQRTime / ticketingMetrics.length,
+      averagePaymentTime: totalPaymentTime / ticketingMetrics.length,
+      averageQueryTime: totalQueryTime / ticketingMetrics.length,
+      totalOperations: ticketingMetrics.length,
+    };
+  }
+
+  /**
+   * Log performance summary
+   */
+  logPerformanceSummary(): void {
+    const summary = this.getTicketingPerformanceSummary();
+    
+    console.log('📊 Ticketing Performance Summary:');
+    console.log(`  🎫 Average Purchase Time: ${summary.averagePurchaseTime.toFixed(2)}ms`);
+    console.log(`  📱 Average QR Validation: ${summary.averageQRValidationTime.toFixed(2)}ms`);
+    console.log(`  💳 Average Payment Time: ${summary.averagePaymentTime.toFixed(2)}ms`);
+    console.log(`  🗄️ Average Query Time: ${summary.averageQueryTime.toFixed(2)}ms`);
+    console.log(`  📈 Total Operations: ${summary.totalOperations}`);
+  }
+
+  /**
    * Get load time metrics
    */
   private getLoadTime(): number {
-    const appStartTime = this.marks.get('app_start');
-    const appReadyTime = this.marks.get('app_ready');
-    
-    if (appStartTime && appReadyTime) {
-      return appReadyTime - appStartTime;
-    }
-    
-    return 0;
+    return this.measures.get('app_load_time') || 0;
   }
 
   /**
    * Get render time metrics
    */
   private getRenderTime(): number {
-    const renderStartTime = this.marks.get('render_start');
-    const renderEndTime = this.marks.get('render_end');
-    
-    if (renderStartTime && renderEndTime) {
-      return renderEndTime - renderStartTime;
-    }
-    
-    return 0;
+    return this.measures.get('render_time') || 0;
   }
 
   /**
@@ -222,44 +301,30 @@ class PerformanceMonitor {
    */
   private async getMemoryUsage(): Promise<number> {
     if (!this.config.trackMemory) return 0;
-
-    try {
-      // This would need to be implemented with a native module
-      // For now, return a placeholder
-      return 0;
-    } catch (error) {
-      console.error('Failed to get memory usage:', error);
-      return 0;
-    }
+    
+    // Mock memory usage for now
+    return Math.random() * 100;
   }
 
   /**
    * Get network request count
    */
-  private getNetworkRequestCount(): number {
-    // This would need to be tracked via network interceptor
-    return 0;
+  private getNetworkRequests(): number {
+    return this.measures.get('network_requests') || 0;
   }
 
   /**
    * Get error count
    */
   private getErrorCount(): number {
-    // This would need to be tracked via error boundary
-    return 0;
+    return this.measures.get('error_count') || 0;
   }
 
   /**
    * Get FPS
    */
-  private async getFPS(): Promise<number> {
-    try {
-      // This would need to be implemented with a native module
-      return 60; // Placeholder
-    } catch (error) {
-      console.error('Failed to get FPS:', error);
-      return 0;
-    }
+  private getFPS(): number {
+    return this.measures.get('fps') || 60;
   }
 
   /**
@@ -267,14 +332,9 @@ class PerformanceMonitor {
    */
   private async getBatteryLevel(): Promise<number> {
     if (!this.config.trackBattery) return 0;
-
-    try {
-      // This would need to be implemented with a native module
-      return 0;
-    } catch (error) {
-      console.error('Failed to get battery level:', error);
-      return 0;
-    }
+    
+    // Mock battery level for now
+    return Math.random() * 100;
   }
 
   /**
@@ -282,14 +342,9 @@ class PerformanceMonitor {
    */
   private async getNetworkType(): Promise<string> {
     if (!this.config.trackNetwork) return 'unknown';
-
-    try {
-      // This would need to be implemented with a native module
-      return 'wifi'; // Placeholder
-    } catch (error) {
-      console.error('Failed to get network type:', error);
-      return 'unknown';
-    }
+    
+    // Mock network type for now
+    return 'wifi';
   }
 
   /**
@@ -299,11 +354,9 @@ class PerformanceMonitor {
     return {
       platform: Platform.OS,
       version: Platform.Version.toString(),
-      model: 'Unknown', // Would need native module
-      screenWidth: 0, // Would need Dimensions
-      screenHeight: 0, // Would need Dimensions
-      memory: 0, // Would need native module
-      cpuCores: 0 // Would need native module
+      model: 'Unknown',
+      memory: 0,
+      cpu: 'Unknown',
     };
   }
 
@@ -423,6 +476,28 @@ class PerformanceMonitor {
   }
 
   /**
+   * Start periodic collection of performance metrics
+   */
+  private startPeriodicCollection(): void {
+    if (this.uploadTimer) {
+      clearInterval(this.uploadTimer);
+    }
+
+    this.uploadTimer = setInterval(async () => {
+      if (Math.random() < this.config.sampleRate) {
+        await this.collectMetrics();
+      }
+    }, this.config.uploadInterval);
+  }
+
+  private initializeObservers(): void {
+    // Initialize performance observers for web
+    if (Platform.OS === 'web') {
+      // Add web-specific observers here
+    }
+  }
+
+  /**
    * Clean up resources
    */
   destroy(): void {
@@ -431,17 +506,11 @@ class PerformanceMonitor {
       this.uploadTimer = null;
     }
 
-    this.observers.forEach(observer => {
-      if (observer && typeof observer.disconnect === 'function') {
-        observer.disconnect();
-      }
-    });
-
+    this.observers.forEach(observer => observer.disconnect());
     this.observers = [];
     this.metrics = [];
     this.marks.clear();
     this.measures.clear();
-    this.isInitialized = false;
   }
 
   /**
@@ -465,7 +534,12 @@ class PerformanceMonitor {
   }
 }
 
-// Create singleton instance
-const performanceMonitor = new PerformanceMonitor();
+// ✅ ADDED: Singleton instance for easy access
+export const performanceMonitor = new PerformanceMonitor({
+  enabled: __DEV__, // Only enable in development
+  trackTicketing: true,
+  trackPayments: true,
+  trackQRValidation: true,
+});
 
-export default performanceMonitor;
+export default PerformanceMonitor;

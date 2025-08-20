@@ -217,6 +217,21 @@ CREATE INDEX idx_tickets_owned_qr_code ON public.tickets_owned(qr_code);
 CREATE INDEX idx_reactions_post_id ON public.reactions(post_id);
 CREATE INDEX idx_follows_organizer_id ON public.follows(organizer_id);
 
+-- Critical indexes for ticketing performance
+CREATE INDEX idx_tickets_owned_user_event ON public.tickets_owned(user_id, event_id);
+CREATE INDEX idx_tickets_owned_qr_code_hash ON public.tickets_owned(qr_code);
+CREATE INDEX idx_orders_user_status ON public.orders(user_id, status);
+CREATE INDEX idx_orders_event_status ON public.orders(event_id, status);
+CREATE INDEX idx_tickets_event_active ON public.tickets(event_id, is_active);
+CREATE INDEX idx_tickets_owned_status ON public.tickets_owned(is_used);
+CREATE INDEX idx_orders_created_at ON public.orders(created_at DESC);
+CREATE INDEX idx_tickets_owned_created_at ON public.tickets_owned(created_at DESC);
+
+-- Composite indexes for complex queries
+CREATE INDEX idx_tickets_owned_user_status ON public.tickets_owned(user_id, is_used);
+CREATE INDEX idx_orders_user_created ON public.orders(user_id, created_at DESC);
+CREATE INDEX idx_tickets_event_price ON public.tickets(event_id, price);
+
 -- Row Level Security (RLS) Policies
 
 -- Enable RLS on all tables

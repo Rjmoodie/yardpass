@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -51,12 +51,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
 
-  useEffect(() => {
-    // Load saved payment methods
-    loadPaymentMethods();
-  }, []);
-
-  const loadPaymentMethods = async () => {
+  // ✅ OPTIMIZED: Memoized payment methods loading
+  const loadPaymentMethods = useCallback(async () => {
     // Mock payment methods - in real app, fetch from Stripe
     const mockMethods: PaymentMethod[] = [
       {
@@ -93,9 +89,14 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
     setPaymentMethods(mockMethods);
     setSelectedPaymentMethod(mockMethods[0]?.id || null);
-  };
+  }, []);
 
-  const calculateTotal = () => {
+  useEffect(() => {
+    loadPaymentMethods();
+  }, [loadPaymentMethods]);
+
+  // ✅ OPTIMIZED: Memoized total calculations
+  const totals = useMemo(() => {
     const subtotal = ticket.price * ticket.quantity;
     const serviceFee = subtotal * 0.05; // 5% service fee
     const tax = subtotal * 0.08; // 8% tax
@@ -105,16 +106,18 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
       tax,
       total: subtotal + serviceFee + tax,
     };
-  };
+  }, [ticket.price, ticket.quantity]);
 
-  const formatCurrency = (amount: number) => {
+  // ✅ OPTIMIZED: Memoized currency formatter
+  const formatCurrency = useCallback((amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
-  };
+  }, []);
 
-  const formatDate = (dateString: string) => {
+  // ✅ OPTIMIZED: Memoized date formatter
+  const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
@@ -122,17 +125,19 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
       day: 'numeric',
       year: 'numeric',
     });
-  };
+  }, []);
 
-  const formatTime = (timeString: string) => {
+  // ✅ OPTIMIZED: Memoized time formatter
+  const formatTime = useCallback((timeString: string) => {
     const [hours, minutes] = timeString.split(':');
     const hour = parseInt(hours);
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutes} ${ampm}`;
-  };
+  }, []);
 
-  const handlePayment = async () => {
+  // ✅ OPTIMIZED: Enhanced payment handling with retry logic
+  const handlePayment = useCallback(async () => {
     if (!selectedPaymentMethod) {
       Alert.alert('Error', 'Please select a payment method');
       return;
@@ -141,30 +146,47 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
     setIsProcessing(true);
 
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Simulate payment processing with retry logic
+      const maxRetries = 3;
+      let lastError: Error | null = null;
 
-      // Simulate success/failure
-      const isSuccess = Math.random() > 0.1; // 90% success rate
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          // Simulate payment processing (reduced from 3s to 1s for better UX)
+          await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (isSuccess) {
-        const paymentId = `pi_${Math.random().toString(36).substring(2, 15)}`;
-        onPaymentSuccess(paymentId);
-      } else {
-        throw new Error('Payment failed. Please try again.');
+          // Simulate success/failure with better success rate
+          const isSuccess = Math.random() > 0.05; // 95% success rate
+
+          if (isSuccess) {
+            const paymentId = `pi_${Math.random().toString(36).substring(2, 15)}`;
+            onPaymentSuccess(paymentId);
+            return; // Success, exit retry loop
+          } else {
+            throw new Error('Payment failed. Please try again.');
+          }
+        } catch (error: any) {
+          lastError = error;
+          
+          // If this is not the last attempt, wait before retrying
+          if (attempt < maxRetries) {
+            const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
       }
+
+      // All retries failed
+      throw lastError || new Error('Payment failed after multiple attempts');
     } catch (error: any) {
       onPaymentFailure(error.message);
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [selectedPaymentMethod, onPaymentSuccess, onPaymentFailure]);
 
-  const addPaymentMethod = () => {
-    Alert.alert('Coming Soon', 'Add payment method functionality will be available soon');
-  };
-
-  const getPaymentMethodIcon = (method: PaymentMethod) => {
+  // ✅ OPTIMIZED: Memoized payment method icon getter
+  const getPaymentMethodIcon = useCallback((method: PaymentMethod) => {
     switch (method.type) {
       case 'card':
         return method.brand === 'visa' ? 'card-outline' : 'card-outline';
@@ -175,9 +197,10 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
       default:
         return 'card-outline';
     }
-  };
+  }, []);
 
-  const getPaymentMethodLabel = (method: PaymentMethod) => {
+  // ✅ OPTIMIZED: Memoized payment method label getter
+  const getPaymentMethodLabel = useCallback((method: PaymentMethod) => {
     switch (method.type) {
       case 'card':
         return `${method.brand?.toUpperCase()} •••• ${method.last4}`;
@@ -188,9 +211,22 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
       default:
         return 'Payment Method';
     }
-  };
+  }, []);
 
-  const totals = calculateTotal();
+  const addPaymentMethod = useCallback(() => {
+    Alert.alert('Coming Soon', 'Add payment method functionality will be available soon');
+  }, []);
+
+  // ✅ OPTIMIZED: Memoized ticket details
+  const ticketDetails = useMemo(() => ({
+    formattedDate: formatDate(ticket.eventDate),
+    formattedTime: formatTime(ticket.eventTime),
+    formattedPrice: formatCurrency(ticket.price),
+    formattedSubtotal: formatCurrency(totals.subtotal),
+    formattedServiceFee: formatCurrency(totals.serviceFee),
+    formattedTax: formatCurrency(totals.tax),
+    formattedTotal: formatCurrency(totals.total),
+  }), [ticket, totals, formatDate, formatTime, formatCurrency]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -226,7 +262,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
               <View style={styles.infoRow}>
                 <Ionicons name="calendar-outline" size={16} color={theme.colors.textSecondary} />
                 <Text style={[styles.infoText, { color: theme.colors.textSecondary }]}>
-                  {formatDate(ticket.eventDate)} • {formatTime(ticket.eventTime)}
+                  {ticketDetails.formattedDate} • {ticketDetails.formattedTime}
                 </Text>
               </View>
               
@@ -248,7 +284,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
             <View style={styles.priceRow}>
               <Text style={[styles.priceLabel, { color: theme.colors.text }]}>Price per ticket:</Text>
               <Text style={[styles.priceValue, { color: theme.colors.text }]}>
-                {formatCurrency(ticket.price)}
+                {ticketDetails.formattedPrice}
               </Text>
             </View>
           </View>
@@ -319,28 +355,28 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Subtotal</Text>
             <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-              {formatCurrency(totals.subtotal)}
+              {ticketDetails.formattedSubtotal}
             </Text>
           </View>
           
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Service Fee</Text>
             <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-              {formatCurrency(totals.serviceFee)}
+              {ticketDetails.formattedServiceFee}
             </Text>
           </View>
           
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Tax</Text>
             <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
-              {formatCurrency(totals.tax)}
+              {ticketDetails.formattedTax}
             </Text>
           </View>
           
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={[styles.totalLabel, { color: theme.colors.text }]}>Total</Text>
             <Text style={[styles.totalValue, { color: theme.colors.primary }]}>
-              {formatCurrency(totals.total)}
+              {ticketDetails.formattedTotal}
             </Text>
           </View>
         </View>
@@ -364,7 +400,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
             <Ionicons name="card-outline" size={20} color={theme.colors.white} />
           )}
           <Text style={styles.payButtonText}>
-            {isProcessing ? 'Processing...' : `Pay ${formatCurrency(totals.total)}`}
+            {isProcessing ? 'Processing...' : `Pay ${ticketDetails.formattedTotal}`}
           </Text>
         </TouchableOpacity>
         

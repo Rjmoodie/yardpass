@@ -1065,7 +1065,9 @@ export interface TicketsState {
   purchasedTickets: Ticket[];
   isLoading: boolean;
   error: string | null;
-  qrData: QRData | null;
+  qrData: string | null;
+  _cachedAt: number; // Cache timestamp for optimization
+  _lastUpdated: number; // Last update timestamp
 }
 
 export interface OrganizersState {

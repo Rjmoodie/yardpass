@@ -33,20 +33,17 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export const TABLES = {
   USERS: 'users',
   EVENTS: 'events',
-  POSTS: 'posts',
   TICKETS: 'tickets',
+  TICKETS_OWNED: 'tickets_owned', // ✅ ADDED: Support for optimized queries
+  ORDERS: 'orders',
+  POSTS: 'posts',
+  COMMENTS: 'comments',
+  REACTIONS: 'reactions',
   ORGANIZERS: 'organizers',
-  CAMPAIGNS: 'campaigns',
-  LOCATIONS: 'locations',
-  NOTIFICATIONS: 'notifications',
-  TICKET_ADD_ONS: 'ticket_add_ons',
-  EVENT_CATEGORIES: 'event_categories',
-  POST_LIKES: 'post_likes',
-  POST_COMMENTS: 'post_comments',
-  USER_FOLLOWS: 'user_follows',
   ORGANIZER_FOLLOWS: 'organizer_follows',
-  EVENT_ATTENDEES: 'event_attendees',
-  CAMPAIGN_POSTS: 'campaign_posts',
+  MEDIA_ASSETS: 'media_assets',
+  CAMPAIGNS: 'campaigns',
+  CHECKINS: 'checkins',
 } as const;
 
 // Real-time channels
