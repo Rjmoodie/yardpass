@@ -92,9 +92,10 @@ export class OrderService {
               location
             )
           ),
-          users!orders_user_id_fkey(
+          profiles!orders_user_id_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url
           )

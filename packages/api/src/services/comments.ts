@@ -15,18 +15,20 @@ export class CommentService {
         .from('comments')
         .select(`
           *,
-          users!comments_user_id_fkey(
+          profiles!comments_user_id_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url,
             verified
           ),
           replies:comments!comments_parent_id_fkey(
             *,
-            users!comments_user_id_fkey(
+            profiles!comments_user_id_fkey(
               id,
-              handle,
+              user_id,
+              username,
               display_name,
               avatar_url,
               verified
@@ -67,9 +69,10 @@ export class CommentService {
         .from('comments')
         .select(`
           *,
-          users!comments_user_id_fkey(
+          profiles!comments_user_id_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url,
             verified
@@ -105,9 +108,10 @@ export class CommentService {
         .insert(commentData)
         .select(`
           *,
-          users!comments_user_id_fkey(
+          profiles!comments_user_id_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url,
             verified
@@ -145,9 +149,10 @@ export class CommentService {
         .eq('id', id)
         .select(`
           *,
-          users!comments_user_id_fkey(
+          profiles!comments_user_id_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url,
             verified
@@ -295,9 +300,10 @@ export class CommentService {
               type
             )
           ),
-          users!comments_user_id_fkey(
+          profiles!comments_user_id_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url,
             verified

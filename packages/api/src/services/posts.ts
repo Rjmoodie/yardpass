@@ -16,7 +16,7 @@ export class PostsService {
         .from('posts')
         .select(`
           *,
-          author:users(*),
+          author:profiles(*),
           event:events(*),
           media_asset:media_assets(*)
         `)

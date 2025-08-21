@@ -32,9 +32,14 @@ serve(async (req) => {
   }
 
   try {
-    // Create Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    // Create Supabase client with fallback values
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://jysyzpgbrretxsvjvqmp.supabase.co'
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseServiceKey) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY environment variable is required')
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const { filters, options }: { filters: AdvancedSearchFilters; options: SearchOptions } = await req.json()
@@ -81,10 +86,11 @@ serve(async (req) => {
         query = query.order('start_at', { ascending: true })
         break
       case 'price':
-        query = query.order('ticket_tiers.price', { ascending: true })
+        // Note: Price sorting would need to be handled differently since ticket_tiers.price doesn't exist
+        // For now, fall back to date sorting
+        query = query.order('start_at', { ascending: true })
         break
       case 'popularity':
-        // This would need a popularity field in the database
         query = query.order('created_at', { ascending: false })
         break
       default: // relevance
@@ -96,41 +102,47 @@ serve(async (req) => {
       .range(offset, offset + limit - 1)
 
     if (error) {
+      console.error('Database query error:', error)
       throw error
     }
 
     // Calculate facets if requested
     let facets = undefined
     if (options.include_facets) {
-      const [categoryFacets, cityFacets] = await Promise.all([
-        supabase
-          .from('events')
-          .select('category')
-          .eq('status', 'published')
-          .eq('visibility', 'public')
-          .not('category', 'is', null),
-        supabase
-          .from('events')
-          .select('city')
-          .eq('status', 'published')
-          .eq('visibility', 'public')
-          .not('city', 'is', null)
-      ])
+      try {
+        const [categoryFacets, cityFacets] = await Promise.all([
+          supabase
+            .from('events')
+            .select('category')
+            .eq('status', 'published')
+            .eq('visibility', 'public')
+            .not('category', 'is', null),
+          supabase
+            .from('events')
+            .select('city')
+            .eq('status', 'published')
+            .eq('visibility', 'public')
+            .not('city', 'is', null)
+        ])
 
-      // Process facets (simplified - in production you'd want more sophisticated aggregation)
-      const categoryCounts = categoryFacets.data?.reduce((acc, event) => {
-        acc[event.category] = (acc[event.category] || 0) + 1
-        return acc
-      }, {} as Record<string, number>) || {}
+        // Process facets
+        const categoryCounts = categoryFacets.data?.reduce((acc, event) => {
+          acc[event.category] = (acc[event.category] || 0) + 1
+          return acc
+        }, {} as Record<string, number>) || {}
 
-      const cityCounts = cityFacets.data?.reduce((acc, event) => {
-        acc[event.city] = (acc[event.city] || 0) + 1
-        return acc
-      }, {} as Record<string, number>) || {}
+        const cityCounts = cityFacets.data?.reduce((acc, event) => {
+          acc[event.city] = (acc[event.city] || 0) + 1
+          return acc
+        }, {} as Record<string, number>) || {}
 
-      facets = {
-        categories: Object.entries(categoryCounts).map(([name, count]) => ({ name, count })),
-        cities: Object.entries(cityCounts).map(([name, count]) => ({ name, count }))
+        facets = {
+          categories: Object.entries(categoryCounts).map(([name, count]) => ({ name, count })),
+          cities: Object.entries(cityCounts).map(([name, count]) => ({ name, count }))
+        }
+      } catch (facetError) {
+        console.error('Facet calculation error:', facetError)
+        // Continue without facets if there's an error
       }
     }
 
@@ -162,7 +174,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Advanced search error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.toString()
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 

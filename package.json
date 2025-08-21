@@ -20,7 +20,7 @@
     "submit:android": "eas submit --platform android"
   },
   "dependencies": {
-    "@expo/metro-config": "^0.20.17",
+    "@expo/metro-config": "~0.10.0",
     "@expo/metro-runtime": "^5.0.4",
     "@react-native-async-storage/async-storage": "1.18.2",
     "@react-navigation/bottom-tabs": "^6.5.11",

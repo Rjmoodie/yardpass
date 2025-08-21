@@ -5,7 +5,7 @@ import { Event, EventsState, EventFilters, EventCategory } from '@/types';
 // ✅ OPTIMIZED: Async thunks with eager loading and field selection
 export const fetchEvents = createAsyncThunk(
   'events/fetchEvents',
-  async (filters?: EventFilters, { rejectWithValue, getState }) => {
+  async (filters?: EventFilters, { rejectWithValue, getState }: any) => {
     try {
       let query = supabase
         .from(TABLES.EVENTS)
@@ -19,6 +19,8 @@ export const fetchEvents = createAsyncThunk(
           status,
           visibility,
           category,
+          category_id,
+          tags,
           cover_image_url,
           venue,
           city,
@@ -28,7 +30,9 @@ export const fetchEvents = createAsyncThunk(
             id,
             name,
             logo_url,
-            is_verified
+            avatar_url,
+            is_verified,
+            verified
           ),
           tickets(
             id,
@@ -70,12 +74,9 @@ export const fetchEvents = createAsyncThunk(
   },
   {
     // ✅ OPTIMIZED: Prevent duplicate requests with cache validation
-    condition: (filters, { getState }) => {
+    condition: (filters, { getState }: any) => {
       const { events } = getState() as { events: EventsState };
       if (events.isLoading) return false;
-      if (events.events.length > 0 && Date.now() - (events._cachedAt || 0) < 30000) {
-        return false; // Use cached data if less than 30 seconds old
-      }
       return true;
     }
   }
@@ -339,12 +340,10 @@ const initialState: EventsState = {
   isLoading: false,
   error: null,
   filters: {
-    category: null,
-    isVerified: null,
-    dateRange: null,
+    category: undefined,
+    isVerified: undefined,
+    dateRange: undefined,
   },
-  _cachedAt: 0, // Cache timestamp for optimization
-  _lastUpdated: 0, // Last update timestamp
 };
 
 // ✅ OPTIMIZED: Slice with performance improvements
@@ -361,34 +360,27 @@ const eventsSlice = createSlice({
     addEvent: (state, action: PayloadAction<Event>) => {
       // ✅ OPTIMIZED: Add to beginning of array efficiently
       state.events.unshift(action.payload);
-      state._lastUpdated = Date.now();
     },
     updateEventInList: (state, action: PayloadAction<Event>) => {
       // ✅ OPTIMIZED: Efficient array update
       const index = state.events.findIndex(event => event.id === action.payload.id);
       if (index !== -1) {
         state.events[index] = action.payload;
-        state._lastUpdated = Date.now();
       }
     },
     removeEventFromList: (state, action: PayloadAction<string>) => {
       // ✅ OPTIMIZED: Efficient array filter
       state.events = state.events.filter(event => event.id !== action.payload);
-      state._lastUpdated = Date.now();
     },
     setFilters: (state, action: PayloadAction<EventFilters>) => {
       state.filters = { ...state.filters, ...action.payload };
     },
     clearFilters: (state) => {
       state.filters = {
-        category: null,
-        isVerified: null,
-        dateRange: null,
+        category: undefined,
+        isVerified: undefined,
+        dateRange: undefined,
       };
-    },
-    clearCache: (state) => {
-      state._cachedAt = 0;
-      state._lastUpdated = 0;
     },
   },
   extraReducers: (builder) => {
@@ -402,8 +394,6 @@ const eventsSlice = createSlice({
         state.isLoading = false;
         if (action.payload.data) {
           state.events = action.payload.data;
-          state._cachedAt = Date.now(); // Cache the timestamp
-          state._lastUpdated = Date.now();
         }
         if (action.payload.error) {
           state.error = action.payload.error;
@@ -444,7 +434,6 @@ const eventsSlice = createSlice({
         state.isLoading = false;
         if (action.payload.data) {
           state.events.unshift(action.payload.data);
-          state._lastUpdated = Date.now();
         }
         if (action.payload.error) {
           state.error = action.payload.error;
@@ -471,7 +460,6 @@ const eventsSlice = createSlice({
           if (state.currentEvent?.id === action.payload.data!.id) {
             state.currentEvent = action.payload.data!;
           }
-          state._lastUpdated = Date.now();
         }
         if (action.payload.error) {
           state.error = action.payload.error;
@@ -491,7 +479,6 @@ const eventsSlice = createSlice({
       .addCase(deleteEvent.fulfilled, (state, action) => {
         state.isLoading = false;
         // Event will be removed from the list by the component
-        state._lastUpdated = Date.now();
       })
       .addCase(deleteEvent.rejected, (state, action) => {
         state.isLoading = false;
@@ -508,7 +495,6 @@ const eventsSlice = createSlice({
         state.isLoading = false;
         if (action.payload.data) {
           state.events = action.payload.data;
-          state._lastUpdated = Date.now();
         }
         if (action.payload.error) {
           state.error = action.payload.error;
@@ -529,7 +515,6 @@ export const {
   removeEventFromList,
   setFilters,
   clearFilters,
-  clearCache,
 } = eventsSlice.actions;
 
 export default eventsSlice.reducer;

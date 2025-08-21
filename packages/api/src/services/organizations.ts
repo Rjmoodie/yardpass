@@ -11,9 +11,10 @@ export class OrganizationService {
         .from('orgs')
         .select(`
           *,
-          users!orgs_users_fkey(
+          profiles!orgs_profiles_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url,
             verified
@@ -47,9 +48,10 @@ export class OrganizationService {
         .from('orgs')
         .select(`
           *,
-          users!orgs_users_fkey(
+          profiles!orgs_profiles_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url,
             verified
@@ -164,9 +166,10 @@ export class OrganizationService {
         .from('orgs')
         .select(`
           *,
-          users!orgs_users_fkey(
+          profiles!orgs_profiles_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url,
             verified
@@ -199,9 +202,10 @@ export class OrganizationService {
         .from('orgs')
         .select(`
           *,
-          users!orgs_users_fkey(
+          profiles!orgs_profiles_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url,
             verified
@@ -235,9 +239,10 @@ export class OrganizationService {
         .from('orgs')
         .select(`
           *,
-          users!orgs_users_fkey(
+          profiles!orgs_profiles_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url,
             verified

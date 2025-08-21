@@ -23,7 +23,6 @@
     "web": {
       "bundler": "metro"
     },
-
     "plugins": [
       "expo-camera",
       "expo-location",

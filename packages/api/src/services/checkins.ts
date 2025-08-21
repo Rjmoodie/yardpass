@@ -117,9 +117,10 @@ export class CheckinService {
         .from('checkins')
         .select(`
           *,
-          users!checkins_user_id_fkey(
+          profiles!checkins_user_id_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url
           ),
@@ -209,9 +210,10 @@ export class CheckinService {
         .from('checkins')
         .select(`
           *,
-          users!checkins_user_id_fkey(
+          profiles!checkins_user_id_fkey(
             id,
-            handle,
+            user_id,
+            username,
             display_name,
             avatar_url
           ),

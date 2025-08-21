@@ -26,11 +26,11 @@ export class AuthService {
 
       // Create user profile in our database
       const { data: profileData, error: profileError } = await supabase
-        .from('users')
+        .from('profiles')
         .insert({
-          id: authData.user.id,
-          handle: credentials.handle,
-          name: credentials.name,
+          user_id: authData.user.id,
+          username: credentials.handle,
+          display_name: credentials.name,
           email: credentials.email,
           preferences: {
             notifications: {
@@ -112,9 +112,9 @@ export class AuthService {
 
       // Get user profile
       const { data: profileData, error: profileError } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
-        .eq('id', data.user.id)
+        .eq('user_id', data.user.id)
         .single();
 
       if (profileError) throw profileError;
@@ -174,9 +174,9 @@ export class AuthService {
 
       // Get user profile
       const { data: profileData, error: profileError } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .single();
 
       if (profileError) throw profileError;
@@ -204,9 +204,9 @@ export class AuthService {
   ): Promise<ApiResponse<AuthUser>> {
     try {
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .update(updates)
-        .eq('id', userId)
+        .eq('user_id', userId)
         .select()
         .single();
 
@@ -282,9 +282,9 @@ export class AuthService {
   static async getUserByHandle(handle: string): Promise<ApiResponse<AuthUser>> {
     try {
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
-        .eq('handle', handle)
+        .eq('username', handle)
         .single();
 
       if (error) throw error;
@@ -309,9 +309,9 @@ export class AuthService {
   static async checkHandleAvailability(handle: string): Promise<ApiResponse<{ available: boolean }>> {
     try {
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('id')
-        .eq('handle', handle)
+        .eq('username', handle)
         .single();
 
       if (error && error.code === 'PGRST116') {
