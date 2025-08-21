@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -57,6 +57,7 @@ const eventCategories: EventCategory[] = [
 const DiscoverScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'foryou' | 'nearby' | 'following'>('nearby');
   const [viewMode, setViewMode] = useState<'grid' | 'heatmap'>('grid');
+  const searchBarRef = useRef<any>(null);
 
   const EventCard = ({ event }: { event: EventCategory }) => (
     <TouchableOpacity style={styles.eventCard}>
@@ -92,7 +93,13 @@ const DiscoverScreen: React.FC = () => {
         <View style={styles.headerContent}>
           <View style={styles.headerSpacer} />
           <Text style={styles.headerTitle}>Discover</Text>
-          <TouchableOpacity style={styles.searchButton}>
+          <TouchableOpacity 
+            style={styles.searchButton}
+            onPress={() => {
+              // Focus the search bar
+              searchBarRef.current?.focus?.();
+            }}
+          >
             <Ionicons name="search" size={24} color="white" />
           </TouchableOpacity>
         </View>
@@ -129,6 +136,7 @@ const DiscoverScreen: React.FC = () => {
       {/* Smart Search Bar */}
       <View style={styles.searchContainer}>
         <SmartSearchBar 
+          ref={searchBarRef}
           placeholder="Search events, people, places..."
           onSearch={(query) => {
             console.log('Search query:', query);

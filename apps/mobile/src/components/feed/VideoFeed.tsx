@@ -195,7 +195,7 @@ export const VideoFeed: React.FC<VideoFeedProps> = ({
               onFilterChange={onFilterChange}
             />
             <TouchableOpacity style={styles.searchButton}>
-              <Ionicons name="search" size={24} color={theme.colors.text} />
+              <Ionicons name="search" size={24} color="white" />
             </TouchableOpacity>
           </View>
         </View>
@@ -215,7 +215,7 @@ export const VideoFeed: React.FC<VideoFeedProps> = ({
               onFilterChange={onFilterChange}
             />
             <TouchableOpacity style={styles.searchButton}>
-              <Ionicons name="search" size={24} color={theme.colors.text} />
+              <Ionicons name="search" size={24} color="white" />
             </TouchableOpacity>
           </View>
         </View>
@@ -243,12 +243,12 @@ export const VideoFeed: React.FC<VideoFeedProps> = ({
             currentFilter={filter.type}
             onFilterChange={onFilterChange}
           />
-          <TouchableOpacity 
-            style={styles.searchButton}
-            onPress={() => setShowSearch(!showSearch)}
-          >
-            <Ionicons name="search" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
+                       <TouchableOpacity 
+               style={styles.searchButton}
+               onPress={() => setShowSearch(!showSearch)}
+             >
+               <Ionicons name="search" size={24} color="white" />
+             </TouchableOpacity>
         </View>
         
         {/* Smart Search Bar */}
@@ -334,14 +334,24 @@ const styles = StyleSheet.create({
   searchButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: theme.colors.primary + '20',
+    backgroundColor: theme.colors.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   searchContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     backgroundColor: theme.colors.surface,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   flatList: {
     flex: 1,
