@@ -9,6 +9,7 @@ import {
   Dimensions,
   Platform,
   Text,
+  TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 // import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
@@ -18,6 +19,7 @@ import Animated, {
   useAnimatedScrollHandler,
   runOnJS,
 } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 
 import { VideoPost } from './VideoPost';
 import { FeedFilterTabs } from './FeedFilterTabs';
@@ -25,6 +27,7 @@ import { LoadingSkeleton } from '../common/LoadingSkeleton';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeed } from '../../hooks/useFeed';
+import SmartSearchBar from '../smart/SmartSearchBar';
 // import { FeedItem, FeedFilter } from '@yardpass/types';
 
 // Temporary types until packages are built
@@ -70,6 +73,7 @@ export const VideoFeed: React.FC<VideoFeedProps> = ({
   const [visibleItems, setVisibleItems] = useState<Set<string>>(new Set());
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollY = useSharedValue(0);
+  const [showSearch, setShowSearch] = useState(false);
 
   // Infinite query for feed data
   // Temporarily commented out React Query usage
@@ -184,10 +188,17 @@ export const VideoFeed: React.FC<VideoFeedProps> = ({
   if (isLoading && feedItems.length === 0) {
     return (
       <View style={styles.container}>
-        <FeedFilterTabs
-          currentFilter={filter.type}
-          onFilterChange={onFilterChange}
-        />
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <FeedFilterTabs
+              currentFilter={filter.type}
+              onFilterChange={onFilterChange}
+            />
+            <TouchableOpacity style={styles.searchButton}>
+              <Ionicons name="search" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+        </View>
         <LoadingSkeleton type="video-feed" />
       </View>
     );
@@ -197,10 +208,17 @@ export const VideoFeed: React.FC<VideoFeedProps> = ({
   if (isError) {
     return (
       <View style={styles.container}>
-        <FeedFilterTabs
-          currentFilter={filter.type}
-          onFilterChange={onFilterChange}
-        />
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <FeedFilterTabs
+              currentFilter={filter.type}
+              onFilterChange={onFilterChange}
+            />
+            <TouchableOpacity style={styles.searchButton}>
+              <Ionicons name="search" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+        </View>
         <ErrorBoundary
           error={error}
           onRetry={refetch}
@@ -218,10 +236,38 @@ export const VideoFeed: React.FC<VideoFeedProps> = ({
 
   return (
     <View style={styles.container}>
-      <FeedFilterTabs
-        currentFilter={filter.type}
-        onFilterChange={onFilterChange}
-      />
+      {/* Header with Search */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <FeedFilterTabs
+            currentFilter={filter.type}
+            onFilterChange={onFilterChange}
+          />
+          <TouchableOpacity 
+            style={styles.searchButton}
+            onPress={() => setShowSearch(!showSearch)}
+          >
+            <Ionicons name="search" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Smart Search Bar */}
+        {showSearch && (
+          <View style={styles.searchContainer}>
+            <SmartSearchBar 
+              placeholder="Search posts, people, events..."
+              onSearch={(query) => {
+                console.log('Feed search query:', query);
+                // You can add navigation to search results here
+              }}
+              onSuggestionPress={(suggestion) => {
+                console.log('Feed suggestion pressed:', suggestion);
+                // You can add navigation to search results here
+              }}
+            />
+          </View>
+        )}
+      </View>
       
       <Animated.FlatList
         ref={flatListRef}
@@ -272,6 +318,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  header: {
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  searchButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: theme.colors.primary + '20',
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
   flatList: {
     flex: 1,

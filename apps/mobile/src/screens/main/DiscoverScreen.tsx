@@ -57,7 +57,6 @@ const eventCategories: EventCategory[] = [
 const DiscoverScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'foryou' | 'nearby' | 'following'>('nearby');
   const [viewMode, setViewMode] = useState<'grid' | 'heatmap'>('grid');
-  const [showSearch, setShowSearch] = useState(false);
 
   const EventCard = ({ event }: { event: EventCategory }) => (
     <TouchableOpacity style={styles.eventCard}>
@@ -93,10 +92,7 @@ const DiscoverScreen: React.FC = () => {
         <View style={styles.headerContent}>
           <View style={styles.headerSpacer} />
           <Text style={styles.headerTitle}>Discover</Text>
-          <TouchableOpacity 
-            style={styles.searchButton}
-            onPress={() => setShowSearch(!showSearch)}
-          >
+          <TouchableOpacity style={styles.searchButton}>
             <Ionicons name="search" size={24} color="white" />
           </TouchableOpacity>
         </View>
@@ -131,21 +127,19 @@ const DiscoverScreen: React.FC = () => {
       </View>
 
       {/* Smart Search Bar */}
-      {showSearch && (
-        <View style={styles.searchContainer}>
-          <SmartSearchBar 
-            placeholder="Search events, people, places..."
-            onSearch={(query) => {
-              console.log('Search query:', query);
-              // You can add navigation to search results here
-            }}
-            onSuggestionPress={(suggestion) => {
-              console.log('Suggestion pressed:', suggestion);
-              // You can add navigation to search results here
-            }}
-          />
-        </View>
-      )}
+      <View style={styles.searchContainer}>
+        <SmartSearchBar 
+          placeholder="Search events, people, places..."
+          onSearch={(query) => {
+            console.log('Search query:', query);
+            // You can add navigation to search results here
+          }}
+          onSuggestionPress={(suggestion) => {
+            console.log('Suggestion pressed:', suggestion);
+            // You can add navigation to search results here
+          }}
+        />
+      </View>
 
       {/* Main Content */}
       <View style={styles.mainContent}>
