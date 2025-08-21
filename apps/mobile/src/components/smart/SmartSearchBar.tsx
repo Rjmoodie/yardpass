@@ -58,25 +58,29 @@ const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
   }, [isFocused, fadeAnim]);
 
   const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    if (query.length >= 2) {
-      debouncedSearch(query);
+    // Ensure query is not empty string for Select components
+    const validQuery = query.trim() || ' ';
+    setSearchQuery(validQuery);
+    if (validQuery.length >= 2) {
+      debouncedSearch(validQuery);
       setShowResults(true);
     } else {
       setShowResults(false);
     }
-    onSearch?.(query);
+    onSearch?.(validQuery);
   };
 
   const handleSuggestionPress = (suggestion: string) => {
-    setSearchQuery(suggestion);
+    // Ensure suggestion is not empty string
+    const validSuggestion = suggestion.trim() || ' ';
+    setSearchQuery(validSuggestion);
     setShowResults(false);
-    onSuggestionPress?.(suggestion);
+    onSuggestionPress?.(validSuggestion);
     inputRef.current?.blur();
   };
 
   const handleClear = () => {
-    setSearchQuery('');
+    setSearchQuery(' ');
     setShowResults(false);
     inputRef.current?.clear();
     inputRef.current?.focus();
@@ -85,7 +89,7 @@ const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
   const renderSuggestion = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={[styles.suggestionItem, { borderBottomColor: theme.colors.border }]}
-      onPress={() => handleSuggestionPress(item.query)}
+      onPress={() => handleSuggestionPress(item.query || ' ')}
     >
       <Ionicons 
         name="search-outline" 
@@ -93,7 +97,7 @@ const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
         color={theme.colors.textSecondary} 
       />
       <Text style={[styles.suggestionText, { color: theme.colors.text }]}>
-        {item.query}
+        {item.query || ' '}
       </Text>
       {item.usage_count > 0 && (
         <Text style={[styles.usageCount, { color: theme.colors.textSecondary }]}>
@@ -103,26 +107,26 @@ const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
     </TouchableOpacity>
   );
 
-  const renderSearchResult = ({ item, index }: { item: any; index: number }) => (
+  const renderResult = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={[styles.resultItem, { borderBottomColor: theme.colors.border }]}
-      onPress={() => handleSuggestionPress(item.title)}
+      onPress={() => handleSuggestionPress(item.title || item.name || ' ')}
     >
       <View style={styles.resultContent}>
         <Text style={[styles.resultTitle, { color: theme.colors.text }]}>
-          {item.title}
+          {item.title || item.name || ' '}
         </Text>
         <Text style={[styles.resultSubtitle, { color: theme.colors.textSecondary }]}>
-          {item.subtitle}
+          {item.description || item.bio || ' '}
         </Text>
       </View>
       <View style={styles.resultMeta}>
         <Text style={[styles.resultType, { color: theme.colors.primary }]}>
-          {item.type}
+          {item.type || 'item'}
         </Text>
-        {item.relevanceScore && (
-          <Text style={[styles.relevanceScore, { color: theme.colors.success }]}>
-            {Math.round(item.relevanceScore * 100)}% match
+        {item.relevance_score && (
+          <Text style={[styles.relevanceScore, { color: theme.colors.textSecondary }]}>
+            {Math.round(item.relevance_score * 100)}%
           </Text>
         )}
       </View>
@@ -150,7 +154,7 @@ const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
           style={[styles.input, { color: theme.colors.text }]}
           placeholder={placeholder}
           placeholderTextColor={theme.colors.textSecondary}
-          value={searchQuery}
+          value={searchQuery || ' '}
           onChangeText={handleSearch}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
@@ -161,7 +165,7 @@ const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
         {isLoading && (
           <ActivityIndicator size="small" color={theme.colors.primary} />
         )}
-        {searchQuery.length > 0 && (
+        {searchQuery && searchQuery.length > 0 && (
           <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
             <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
@@ -221,39 +225,71 @@ const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
             </View>
           )}
 
-          {!suggestionsLoading && suggestions.length > 0 && (
+          {!suggestionsLoading && suggestions && suggestions.length > 0 && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
                 Popular Searches
               </Text>
               <FlatList
-                data={suggestions}
+                data={suggestions.filter(item => item.query && item.query.trim())}
                 renderItem={renderSuggestion}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => item.id || item.query || Math.random().toString()}
                 scrollEnabled={false}
               />
             </View>
           )}
 
-          {!suggestionsLoading && searchResults?.data?.events?.length > 0 && (
+          {!suggestionsLoading && searchResults?.data?.events && searchResults.data.events.length > 0 && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
-                Search Results ({searchResults.data.events.length})
+                Events
               </Text>
               <FlatList
-                data={searchResults.data.events}
-                renderItem={renderSearchResult}
-                keyExtractor={(item) => item.id}
+                data={searchResults.data.events.filter(item => item.title && item.title.trim())}
+                renderItem={renderResult}
+                keyExtractor={(item) => item.id || Math.random().toString()}
                 scrollEnabled={false}
               />
             </View>
           )}
 
-          {!suggestionsLoading && suggestions.length === 0 && searchResults?.data?.events?.length === 0 && searchQuery.length >= 2 && (
+          {!suggestionsLoading && searchResults?.data?.users && searchResults.data.users.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+                Users
+              </Text>
+              <FlatList
+                data={searchResults.data.users.filter(item => item.name && item.name.trim())}
+                renderItem={renderResult}
+                keyExtractor={(item) => item.id || Math.random().toString()}
+                scrollEnabled={false}
+              />
+            </View>
+          )}
+
+          {!suggestionsLoading && searchResults?.data?.organizations && searchResults.data.organizations.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+                Organizations
+              </Text>
+              <FlatList
+                data={searchResults.data.organizations.filter(item => item.name && item.name.trim())}
+                renderItem={renderResult}
+                keyExtractor={(item) => item.id || Math.random().toString()}
+                scrollEnabled={false}
+              />
+            </View>
+          )}
+
+          {!suggestionsLoading && 
+           (!suggestions || suggestions.length === 0) && 
+           (!searchResults?.data?.events || searchResults.data.events.length === 0) &&
+           (!searchResults?.data?.users || searchResults.data.users.length === 0) &&
+           (!searchResults?.data?.organizations || searchResults.data.organizations.length === 0) && (
             <View style={styles.emptyContainer}>
-              <Ionicons name="search-outline" size={24} color={theme.colors.textSecondary} />
+              <Ionicons name="search-outline" size={32} color={theme.colors.textSecondary} />
               <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                No results found for "{searchQuery}"
+                No results found
               </Text>
             </View>
           )}
@@ -288,15 +324,16 @@ const styles = StyleSheet.create({
   },
   typeSelector: {
     flexDirection: 'row',
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
     marginBottom: 8,
   },
   typeButton: {
-    paddingHorizontal: 12,
+    flex: 1,
     paddingVertical: 6,
+    paddingHorizontal: 8,
     borderRadius: 6,
     marginHorizontal: 2,
   },
