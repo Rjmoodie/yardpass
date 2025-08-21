@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import SmartSearchBar from '@/components/smart/SmartSearchBar';
 
 const { width } = Dimensions.get('window');
 
@@ -56,6 +57,7 @@ const eventCategories: EventCategory[] = [
 const DiscoverScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'foryou' | 'nearby' | 'following'>('nearby');
   const [viewMode, setViewMode] = useState<'grid' | 'heatmap'>('grid');
+  const [showSearch, setShowSearch] = useState(false);
 
   const EventCard = ({ event }: { event: EventCategory }) => (
     <TouchableOpacity style={styles.eventCard}>
@@ -91,7 +93,10 @@ const DiscoverScreen: React.FC = () => {
         <View style={styles.headerContent}>
           <View style={styles.headerSpacer} />
           <Text style={styles.headerTitle}>Discover</Text>
-          <TouchableOpacity style={styles.searchButton}>
+          <TouchableOpacity 
+            style={styles.searchButton}
+            onPress={() => setShowSearch(!showSearch)}
+          >
             <Ionicons name="search" size={24} color="white" />
           </TouchableOpacity>
         </View>
@@ -124,6 +129,23 @@ const DiscoverScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Smart Search Bar */}
+      {showSearch && (
+        <View style={styles.searchContainer}>
+          <SmartSearchBar 
+            placeholder="Search events, people, places..."
+            onSearch={(query) => {
+              console.log('Search query:', query);
+              // You can add navigation to search results here
+            }}
+            onSuggestionPress={(suggestion) => {
+              console.log('Suggestion pressed:', suggestion);
+              // You can add navigation to search results here
+            }}
+          />
+        </View>
+      )}
 
       {/* Main Content */}
       <View style={styles.mainContent}>
@@ -373,6 +395,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 8,
     marginTop: -16,
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#1a1a1a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#3a3a3a',
   },
 });
 
