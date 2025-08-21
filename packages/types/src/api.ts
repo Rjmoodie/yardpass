@@ -24,11 +24,25 @@ export interface ApiError {
 // Authentication
 export interface AuthUser {
   id: string;
+  user_id: string;
   email: string;
-  handle: string;
-  name: string;
+  username: string;
+  display_name?: string;
   avatar_url?: string;
   bio?: string;
+  phone?: string;
+  verified?: boolean;
+  date_of_birth?: string;
+  gender?: string;
+  onboarding_completed: boolean;
+  interests?: string[];
+  tags?: string[];
+  user_role?: string;
+  account_type?: string;
+  badge?: string;
+  verification_level?: number;
+  business_verified?: boolean;
+  tier_level?: number;
   role: 'user' | 'organizer' | 'admin';
   is_verified: boolean;
   preferences: UserPreferences;
@@ -78,9 +92,24 @@ export interface AccessibilitySettings {
 }
 
 export interface UserStats {
+  // Basic counts (existing)
   followers: number;
   following: number;
   posts: number;
+  events_count: number;
+  
+  // Enhanced counts (new)
+  events_attending_count: number;
+  events_attended_count: number;
+  organizations_count: number;
+  organizations_owned_count: number;
+  years_active: number;
+  total_events_created: number;
+  total_events_attended: number;
+  total_tickets_purchased: number;
+  last_activity_at: string;
+  
+  // Legacy fields (for backward compatibility)
   events_attended: number;
   tickets_purchased: number;
 }
@@ -512,6 +541,66 @@ export interface ApiEndpoints {
   'POST /auth/signout': {
     request: {};
     response: { success: boolean };
+  };
+  
+  // Profiles
+  'GET /profiles/:id': {
+    request: { id: string };
+    response: { profile: AuthUser };
+  };
+  'GET /profiles/username/:username': {
+    request: { username: string };
+    response: { profile: AuthUser };
+  };
+  'PUT /profiles/:id': {
+    request: { id: string; updates: Partial<AuthUser> };
+    response: { profile: AuthUser };
+  };
+  'GET /profiles/:id/stats': {
+    request: { id: string };
+    response: { 
+      posts_count: number;
+      followers_count: number;
+      following_count: number;
+      events_count: number;
+      events_attending_count: number;
+      events_attended_count: number;
+      organizations_count: number;
+      organizations_owned_count: number;
+      years_active: number;
+      total_events_created: number;
+      total_events_attended: number;
+      total_tickets_purchased: number;
+      last_activity_at: string;
+    };
+  };
+  'GET /profiles/search': {
+    request: { query: string; limit?: number };
+    response: { profiles: AuthUser[] };
+  };
+  'GET /profiles/trending': {
+    request: { limit?: number };
+    response: { profiles: AuthUser[] };
+  };
+  'GET /profiles/:id/followers': {
+    request: { id: string; limit?: number; offset?: number };
+    response: { followers: AuthUser[]; meta: ApiMeta };
+  };
+  'GET /profiles/:id/following': {
+    request: { id: string; limit?: number; offset?: number };
+    response: { following: AuthUser[]; meta: ApiMeta };
+  };
+  'POST /profiles/:id/follow': {
+    request: { id: string; targetId: string };
+    response: { success: boolean };
+  };
+  'DELETE /profiles/:id/follow': {
+    request: { id: string; targetId: string };
+    response: { success: boolean };
+  };
+  'GET /profiles/:id/following/:targetId': {
+    request: { id: string; targetId: string };
+    response: { isFollowing: boolean };
   };
   
   // Events
