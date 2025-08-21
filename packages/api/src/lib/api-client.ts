@@ -200,6 +200,35 @@ export class ApiClient {
     return this.request(`/media/${id}/playback-token`);
   }
 
+  // New Media Upload endpoints
+  async uploadPostMedia(postId: string, file: File, options?: any): Promise<ApiResponse<any>> {
+    return this.request(`/media/posts/${postId}/upload`, {
+      method: 'POST',
+      body: JSON.stringify({ file, options }),
+    });
+  }
+
+  async deletePostMedia(postId: string): Promise<ApiResponse<any>> {
+    return this.request(`/media/posts/${postId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getMediaUploadUrl(postId: string, fileName: string, fileType: string = 'image'): Promise<ApiResponse<any>> {
+    return this.request(`/media/posts/${postId}/upload-url`, {
+      method: 'POST',
+      body: JSON.stringify({ fileName, fileType }),
+    });
+  }
+
+  async getMediaAnalytics(userId: string, limit: number = 50): Promise<ApiResponse<any>> {
+    return this.request(`/media/analytics/${userId}?limit=${limit}`);
+  }
+
+  async getMediaProcessingStatus(postId: string): Promise<ApiResponse<any>> {
+    return this.request(`/media/posts/${postId}/processing-status`);
+  }
+
   // Search endpoints
   async search(query: SearchQuery): Promise<ApiResponse<SearchResult>> {
     const searchParams = new URLSearchParams();
