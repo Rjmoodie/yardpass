@@ -17,8 +17,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { fetchFeed, clearFeed, setFilters } from '@/store/slices/postsSlice';
-import { FeedItemComponent, FeedItemHandles } from '@/components/feed/FeedItemComponent';
-import { FeedFilterTabs } from '@/components/feed/FeedFilterTabs';
+import FeedItemComponent, { FeedItemHandles } from '@/components/feed/FeedItemComponent';
+import FeedFilterTabs from '@/components/feed/FeedFilterTabs';
 import { FeedItem, FeedFilter } from '@/types';
 import { theme } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -56,8 +56,8 @@ const HomeScreen: React.FC = () => {
 
   const currentFilterConfig = useMemo((): FeedFilter => {
     return {
-      type: currentFilter,
-      ...filters
+      ...filters,
+      type: currentFilter
     };
   }, [currentFilter, filters]);
 
@@ -130,7 +130,7 @@ const HomeScreen: React.FC = () => {
   }, []);
 
   const handleViewableItemsChanged = useCallback(({ viewableItems }: any) => {
-    const newVisibleItems = new Set(viewableItems.map((item: any) => item.index));
+    const newVisibleItems = new Set<number>(viewableItems.map((item: any) => item.index));
     setVisibleItems(newVisibleItems);
     
     // Find the most visible item (closest to center)
@@ -212,7 +212,7 @@ const HomeScreen: React.FC = () => {
     return (
       <View style={{ height: feedItemHeight }}>
         <FeedItemComponent
-          ref={(ref) => setVideoRef(index, ref)}
+          ref={(ref: any) => setVideoRef(index, ref)}
           feedItem={item}
           index={index}
           onPostPress={handlePostPress}
