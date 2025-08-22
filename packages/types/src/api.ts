@@ -389,9 +389,14 @@ export interface CheckoutRequest {
 }
 
 export interface CheckoutResponse {
+  success: boolean;
   checkout_url: string;
   session_id: string;
+  order_id: string;
+  amount: number;
+  currency: string;
   expires_at: string;
+  error?: string;
 }
 
 // Video Pipeline
