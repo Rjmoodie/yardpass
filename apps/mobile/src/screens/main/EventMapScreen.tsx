@@ -1,139 +1,221 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   TextInput,
   StyleSheet,
   SafeAreaView,
   Dimensions,
-  Animated,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import MapView, { Marker, Callout } from 'react-native-maps';
+import * as Location from 'expo-location';
+import { supabase } from '@/services/supabase';
 
 const { width, height } = Dimensions.get('window');
 
-interface MapMarker {
+interface Event {
   id: string;
-  x: number;
-  y: number;
-  size: number;
-  isPulsing?: boolean;
+  title: string;
+  description: string;
+  venue: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  start_date: string;
+  cover_image: string;
+  category: string;
+  price_range: any;
 }
-
-const mapMarkers: MapMarker[] = [
-  {
-    id: '1',
-    x: 50, // 50% of screen width
-    y: 40, // 40% of screen height
-    size: 20,
-    isPulsing: true,
-  },
-  {
-    id: '2',
-    x: 30, // 30% of screen width
-    y: 60, // 60% of screen height
-    size: 16,
-    isPulsing: false,
-  },
-];
 
 const EventMapScreen: React.FC = () => {
   const [searchText, setSearchText] = useState('');
-  const pulseAnim = new Animated.Value(1);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
+  const [region, setRegion] = useState({
+    latitude: 37.78825,
+    longitude: -122.4324,
+    latitudeDelta: 0.0922,
+    longitudeDelta: 0.0421,
+  });
+  const [loading, setLoading] = useState(true);
 
-  // Start pulsing animation
-  React.useEffect(() => {
-    const pulse = () => {
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.2,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ]).start(() => pulse());
-    };
-    pulse();
+  // Get user location
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission denied', 'Location permission is required to show nearby events');
+          return;
+        }
+
+        const location = await Location.getCurrentPositionAsync({});
+        setUserLocation(location);
+        setRegion({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        });
+      } catch (error) {
+        console.log('Error getting location:', error);
+      }
+    })();
   }, []);
 
-  const MapMarker = ({ marker }: { marker: MapMarker }) => (
-    <View
-      style={[
-        styles.mapMarker,
-        {
-          left: `${marker.x}%`,
-          top: `${marker.y}%`,
-          transform: [{ translateX: -marker.size / 2 }, { translateY: -marker.size / 2 }],
-        },
-      ]}
-    >
-      {marker.isPulsing ? (
-        <Animated.View
-          style={[
-            styles.pulsingMarker,
-            {
-              width: marker.size,
-              height: marker.size,
-              transform: [{ scale: pulseAnim }],
-            },
-          ]}
-        >
-          <View style={styles.markerCenter} />
-        </Animated.View>
-      ) : (
-        <View
-          style={[
-            styles.staticMarker,
-            {
-              width: marker.size,
-              height: marker.size,
-            },
-          ]}
-        >
-          <View style={styles.markerCenter} />
-        </View>
-      )}
-    </View>
-  );
+  // Fetch events with coordinates
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('events')
+        .select(`
+          id,
+          title,
+          description,
+          venue,
+          city,
+          latitude,
+          longitude,
+          start_date,
+          cover_image,
+          category,
+          price_range
+        `)
+        .eq('status', 'published')
+        .eq('visibility', 'public')
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null)
+        .gte('start_date', new Date().toISOString())
+        .order('start_date', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching events:', error);
+        return;
+      }
+
+      setEvents(data || []);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkerPress = (event: Event) => {
+    Alert.alert(
+      event.title,
+      `${event.description}\n\nVenue: ${event.venue}\nCity: ${event.city}\nDate: ${new Date(event.start_date).toLocaleDateString()}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'View Details', onPress: () => console.log('Navigate to event details') },
+      ]
+    );
+  };
+
+  const centerOnUserLocation = () => {
+    if (userLocation) {
+      setRegion({
+        latitude: userLocation.coords.latitude,
+        longitude: userLocation.coords.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      });
+    }
+  };
+
+  const searchEvents = async () => {
+    if (!searchText.trim()) {
+      fetchEvents();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('events')
+        .select(`
+          id,
+          title,
+          description,
+          venue,
+          city,
+          latitude,
+          longitude,
+          start_date,
+          cover_image,
+          category,
+          price_range
+        `)
+        .eq('status', 'published')
+        .eq('visibility', 'public')
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null)
+        .or(`title.ilike.%${searchText}%,venue.ilike.%${searchText}%,city.ilike.%${searchText}%`)
+        .gte('start_date', new Date().toISOString())
+        .order('start_date', { ascending: true });
+
+      if (error) {
+        console.error('Error searching events:', error);
+        return;
+      }
+
+      setEvents(data || []);
+    } catch (error) {
+      console.error('Error searching events:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Map Background */}
-      <View style={styles.mapContainer}>
-        <Image
-          source={{
-            uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBYWp_aujf_4Oz9odvSvrm86a9dV44saowYCQj9Z7yeFirALAG1wPLpRzPdSXWBT309QnM__ln5ROUCdWHfr7ZubYWRlWA4DvJH_hXJE_tI0q83ZKuawAUpNFhmwQHTpNzRQkrLHuSw88wrknpQB-kOulXqBYnsWsZxx3gdziXemFZh4l92oGgBJ4hoKJZpN_y9mudJ7SjM-ooWDBxABvFnHuWGPuUUAjpdUlOY9NqyUt9oZ0b0QennvzlPNnjKUVp5BFfNQp1YhpDs',
-          }}
-          style={styles.mapImage}
-        />
-        <View style={styles.mapOverlay} />
-        <LinearGradient
-          colors={[
-            'rgba(0, 255, 136, 0.5)',
-            'rgba(0, 255, 136, 0.2)',
-            'rgba(0, 255, 136, 0.05)',
-            'transparent',
-          ]}
-          style={styles.mapGradient}
-        />
-        
-        {/* Map Markers */}
-        {mapMarkers.map((marker) => (
-          <MapMarker key={marker.id} marker={marker} />
+      {/* Map */}
+      <MapView
+        style={styles.map}
+        region={region}
+        onRegionChangeComplete={setRegion}
+        showsUserLocation={true}
+        showsMyLocationButton={false}
+      >
+        {events.map((event) => (
+          <Marker
+            key={event.id}
+            coordinate={{
+              latitude: event.latitude,
+              longitude: event.longitude,
+            }}
+            title={event.title}
+            description={event.venue}
+            onPress={() => handleMarkerPress(event)}
+          >
+            <Callout>
+              <View style={styles.calloutContainer}>
+                <Text style={styles.calloutTitle}>{event.title}</Text>
+                <Text style={styles.calloutVenue}>{event.venue}</Text>
+                <Text style={styles.calloutDate}>
+                  {new Date(event.start_date).toLocaleDateString()}
+                </Text>
+              </View>
+            </Callout>
+          </Marker>
         ))}
-      </View>
+      </MapView>
 
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
-        <Text style={styles.headerTitle}>YardPass</Text>
+        <Text style={styles.headerTitle}>Event Map</Text>
         <TouchableOpacity style={styles.menuButton}>
           <Ionicons name="menu" size={24} color="white" />
         </TouchableOpacity>
@@ -149,6 +231,8 @@ const EventMapScreen: React.FC = () => {
             placeholderTextColor="#a3a3a3"
             value={searchText}
             onChangeText={setSearchText}
+            onSubmitEditing={searchEvents}
+            returnKeyType="search"
           />
         </View>
       </View>
@@ -156,51 +240,51 @@ const EventMapScreen: React.FC = () => {
       {/* Map Controls */}
       <View style={styles.mapControls}>
         <View style={styles.controlGroup}>
-          <TouchableOpacity style={styles.controlButton}>
+          <TouchableOpacity 
+            style={styles.controlButton}
+            onPress={() => setRegion({
+              ...region,
+              latitudeDelta: region.latitudeDelta * 0.5,
+              longitudeDelta: region.longitudeDelta * 0.5,
+            })}
+          >
             <Ionicons name="add" size={24} color="white" />
           </TouchableOpacity>
           <View style={styles.controlDivider} />
-          <TouchableOpacity style={styles.controlButton}>
+          <TouchableOpacity 
+            style={styles.controlButton}
+            onPress={() => setRegion({
+              ...region,
+              latitudeDelta: region.latitudeDelta * 2,
+              longitudeDelta: region.longitudeDelta * 2,
+            })}
+          >
             <Ionicons name="remove" size={24} color="white" />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.locationButton}>
+        <TouchableOpacity style={styles.locationButton} onPress={centerOnUserLocation}>
           <Ionicons name="locate" size={24} color="white" />
         </TouchableOpacity>
       </View>
+
+      {/* Event Count Badge */}
+      {events.length > 0 && (
+        <View style={styles.eventCountBadge}>
+          <Text style={styles.eventCountText}>{events.length} events nearby</Text>
+        </View>
+      )}
+
+      {/* Loading Indicator */}
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading events...</Text>
+        </View>
+      )}
 
       {/* Floating Action Button */}
       <TouchableOpacity style={styles.fab}>
         <Ionicons name="add" size={32} color="black" />
       </TouchableOpacity>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNavigation}>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home" size={24} color="#00ff88" />
-          <Text style={[styles.navLabel, styles.activeNavLabel]}>Home</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="search" size={24} color="#a3a3a3" />
-          <Text style={styles.navLabel}>Search</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="add-circle" size={24} color="#a3a3a3" />
-          <Text style={styles.navLabel}>Create</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="ticket" size={24} color="#a3a3a3" />
-          <Text style={styles.navLabel}>Tickets</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="person" size={24} color="#a3a3a3" />
-          <Text style={styles.navLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };
@@ -210,63 +294,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1a1a1a',
   },
-  mapContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  mapImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  mapOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-  },
-  mapGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  mapMarker: {
-    position: 'absolute',
-  },
-  pulsingMarker: {
-    borderRadius: 10,
-    backgroundColor: '#00ff88',
-    shadowColor: '#00ff88',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  staticMarker: {
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 255, 136, 0.8)',
-    shadowColor: '#00ff88',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  markerCenter: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'white',
+  map: {
+    flex: 1,
   },
   header: {
     position: 'absolute',
@@ -369,6 +398,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
+  eventCountBadge: {
+    position: 'absolute',
+    top: 180,
+    left: 16,
+    backgroundColor: 'rgba(0, 255, 136, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  eventCountText: {
+    color: 'black',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -50 }, { translateY: -50 }],
+    backgroundColor: 'rgba(38, 38, 38, 0.9)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 16,
+  },
   fab: {
     position: 'absolute',
     bottom: 80,
@@ -385,34 +447,23 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
-  bottomNavigation: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(26, 26, 26, 0.8)',
-    borderTopWidth: 1,
-    borderTopColor: '#333333',
-    paddingTop: 12,
-    paddingBottom: 20,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+  calloutContainer: {
+    width: 200,
+    padding: 8,
   },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
+  calloutTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
-  navLabel: {
-    color: '#a3a3a3',
+  calloutVenue: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 2,
+  },
+  calloutDate: {
     fontSize: 12,
-    fontWeight: '500',
-  },
-  activeNavLabel: {
-    color: '#00ff88',
+    color: '#999',
   },
 });
 

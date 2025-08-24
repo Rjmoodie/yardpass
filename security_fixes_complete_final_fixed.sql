@@ -15,7 +15,7 @@ BEGIN
     FOR r IN (
         SELECT schemaname, tablename, policyname 
         FROM pg_policies 
-        WHERE schemaname = 'public'
+        WHERE schemaname = 'public'a
     ) LOOP
         EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', 
             r.policyname, r.schemaname, r.tablename);
@@ -726,3 +726,4 @@ SELECT
     '🔒 Security Fixes Applied Successfully!' as status,
     'Perfect RLS policies for all tables with exact column names, secure functions, and access controls implemented' as message,
     'Your database is now enterprise-grade secure and compliant' as next_step;
+
