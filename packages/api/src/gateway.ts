@@ -214,6 +214,143 @@ export class ApiGateway {
     return this.call('smart-recommendations', { method: 'GET', params });
   }
   
+  // Enhanced Search with Full-Text Capabilities
+  async enhancedSearch(params: {
+    q: string;
+    types?: string[];
+    category?: string;
+    location?: string;
+    radius?: number;
+    page?: number;
+    limit?: number;
+  }): Promise<EdgeFunctionResponse<any>> {
+    const searchParams = new URLSearchParams({
+      q: params.q,
+      types: params.types?.join(',') || 'events,users,organizations',
+      ...(params.category && { category: params.category }),
+      ...(params.location && { location: params.location }),
+      ...(params.radius && { radius: params.radius.toString() }),
+      ...(params.page && { page: params.page.toString() }),
+      ...(params.limit && { limit: params.limit.toString() })
+    });
+
+    return this.call(`enhanced-search?${searchParams}`, { method: 'GET' });
+  }
+
+  // Waitlist Management
+  async joinWaitlist(params: {
+    event_id: string;
+    ticket_tier_id: string;
+    quantity?: number;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('waitlist-management?action=join', {
+      method: 'POST',
+      body: params
+    });
+  }
+
+  async leaveWaitlist(params: { waitlist_id: string }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('waitlist-management?action=leave', {
+      method: 'POST',
+      body: params
+    });
+  }
+
+  async getWaitlist(params?: {
+    event_id?: string;
+    user_id?: string;
+  }): Promise<EdgeFunctionResponse<any>> {
+    const searchParams = new URLSearchParams();
+    if (params?.event_id) searchParams.append('event_id', params.event_id);
+    if (params?.user_id) searchParams.append('user_id', params.user_id);
+
+    return this.call(`waitlist-management?action=list&${searchParams}`, { method: 'GET' });
+  }
+
+  async notifyWaitlist(params: {
+    event_id: string;
+    ticket_tier_id: string;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('waitlist-management?action=notify', {
+      method: 'POST',
+      body: params
+    });
+  }
+
+  async convertWaitlistToTicket(params: { waitlist_id: string }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('waitlist-management?action=convert', {
+      method: 'POST',
+      body: params
+    });
+  }
+
+  // Event Series Management
+  async createEventSeries(params: {
+    name: string;
+    description?: string;
+    org_id?: string;
+    recurrence_pattern: any;
+    start_date: string;
+    end_date?: string;
+    max_occurrences?: number;
+    settings?: any;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('event-series?action=create', {
+      method: 'POST',
+      body: params
+    });
+  }
+
+  async updateEventSeries(params: {
+    series_id: string;
+    name?: string;
+    description?: string;
+    recurrence_pattern?: any;
+    end_date?: string;
+    max_occurrences?: number;
+    settings?: any;
+    is_active?: boolean;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('event-series?action=update', {
+      method: 'POST',
+      body: params
+    });
+  }
+
+  async deleteEventSeries(params: { series_id: string }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('event-series?action=delete', {
+      method: 'POST',
+      body: params
+    });
+  }
+
+  async generateSeriesEvents(params: {
+    series_id: string;
+    template_event_data: any;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('event-series?action=generate', {
+      method: 'POST',
+      body: params
+    });
+  }
+
+  async getEventSeries(params?: {
+    series_id?: string;
+    org_id?: string;
+    organizer_id?: string;
+  }): Promise<EdgeFunctionResponse<any>> {
+    const searchParams = new URLSearchParams();
+    if (params?.series_id) searchParams.append('series_id', params.series_id);
+    if (params?.org_id) searchParams.append('org_id', params.org_id);
+    if (params?.organizer_id) searchParams.append('organizer_id', params.organizer_id);
+
+    return this.call(`event-series?action=list&${searchParams}`, { method: 'GET' });
+  }
+
+  async getSeriesEvents(params: { series_id: string }): Promise<EdgeFunctionResponse<any>> {
+    return this.call(`event-series?action=events&series_id=${params.series_id}`, { method: 'GET' });
+  }
+
   // ===== SOCIAL & COMMUNITY =====
   
   async getSocialFeed(params: {
@@ -331,6 +468,72 @@ export class ApiGateway {
     data?: any;
   }): Promise<EdgeFunctionResponse<any>> {
     return this.call('content-optimization', { method: 'POST', body: contentData });
+  }
+
+  // Profile Management
+  async getProfile(params?: { user_id?: string }): Promise<EdgeFunctionResponse<any>> {
+    const searchParams = params?.user_id ? `?user_id=${params.user_id}` : '';
+    return this.call(`profiles${searchParams}`, { method: 'GET' });
+  }
+
+  async updateProfile(params: {
+    handle?: string;
+    display_name?: string;
+    bio?: string;
+    website_url?: string;
+    location?: string;
+    interests?: string[];
+    social_links?: any;
+    privacy_settings?: any;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('profiles', {
+      method: 'PUT',
+      body: params
+    });
+  }
+
+  // Event Categories
+  async getEventCategories(): Promise<EdgeFunctionResponse<any>> {
+    return this.call('event-categories', { method: 'GET' });
+  }
+
+  async createEventCategory(params: {
+    name: string;
+    slug: string;
+    description?: string;
+    icon_url?: string;
+    color_hex?: string;
+    sort_order?: number;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('event-categories', {
+      method: 'POST',
+      body: params
+    });
+  }
+
+  // Event Tags
+  async getEventTags(): Promise<EdgeFunctionResponse<any>> {
+    return this.call('event-tags', { method: 'GET' });
+  }
+
+  async addEventTags(params: {
+    event_id: string;
+    tag_ids: string[];
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('event-tags', {
+      method: 'POST',
+      body: params
+    });
+  }
+
+  async removeEventTags(params: {
+    event_id: string;
+    tag_ids: string[];
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('event-tags', {
+      method: 'DELETE',
+      body: params
+    });
   }
 }
 
