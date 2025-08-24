@@ -1,9 +1,26 @@
+/**
+ * @deprecated This service is deprecated. Use Edge Functions instead.
+ * 
+ * MIGRATION GUIDE:
+ * OLD: import { EventsService } from '@yardpass/api';
+ *      const events = await EventsService.getEvents(params);
+ * 
+ * NEW: import { apiGateway } from '@yardpass/api';
+ *      const events = await apiGateway.getEvents(params);
+ * 
+ * Edge Functions provide:
+ * - Better security (RLS enforcement)
+ * - Serverless auto-scaling
+ * - Real-time capabilities
+ * - Consistent response formats
+ */
+
 import { supabase } from '../lib/supabase';
 import { Event, ApiResponse, ApiError, GeoPoint } from '@yardpass/types';
 
 export class EventsService {
   /**
-   * Get events with filters
+   * @deprecated Use apiGateway.getEvents() instead
    */
   static async getEvents(params: {
     near?: string; // "lat,lng"
@@ -12,6 +29,8 @@ export class EventsService {
     cursor?: string;
     limit?: number;
   }): Promise<ApiResponse<{ events: Event[]; meta: any }>> {
+    console.warn('EventsService.getEvents is deprecated. Use apiGateway.getEvents() instead.');
+    
     try {
       let query = supabase
         .from('events')
@@ -102,73 +121,11 @@ export class EventsService {
   }
 
   /**
-   * Get event by ID
-   */
-  static async getEvent(id: string): Promise<ApiResponse<Event>> {
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`
-          *,
-          org:orgs(*),
-          tickets(*),
-          posts(*)
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-
-      return {
-        data: data as Event,
-      };
-    } catch (error: any) {
-      const apiError: ApiError = {
-        code: 'GET_EVENT_FAILED',
-        message: error.message || 'Failed to get event',
-        details: error,
-      };
-
-      throw apiError;
-    }
-  }
-
-  /**
-   * Get event by slug
-   */
-  static async getEventBySlug(slug: string): Promise<ApiResponse<Event>> {
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`
-          *,
-          org:orgs(*),
-          tickets(*),
-          posts(*)
-        `)
-        .eq('slug', slug)
-        .single();
-
-      if (error) throw error;
-
-      return {
-        data: data as Event,
-      };
-    } catch (error: any) {
-      const apiError: ApiError = {
-        code: 'GET_EVENT_BY_SLUG_FAILED',
-        message: error.message || 'Failed to get event by slug',
-        details: error,
-      };
-
-      throw apiError;
-    }
-  }
-
-  /**
-   * Create new event
+   * @deprecated Use apiGateway.createEvent() instead
    */
   static async createEvent(eventData: Omit<Event, 'id' | 'created_at' | 'updated_at'>): Promise<ApiResponse<Event>> {
+    console.warn('EventsService.createEvent is deprecated. Use apiGateway.createEvent() instead.');
+    
     try {
       const { data, error } = await supabase
         .from('events')
@@ -193,17 +150,16 @@ export class EventsService {
   }
 
   /**
-   * Update event
+   * @deprecated Use apiGateway.updateEvent() instead
    */
-  static async updateEvent(
-    id: string,
-    updates: Partial<Omit<Event, 'id' | 'created_at' | 'updated_at'>>
-  ): Promise<ApiResponse<Event>> {
+  static async updateEvent(eventId: string, updates: Partial<Event>): Promise<ApiResponse<Event>> {
+    console.warn('EventsService.updateEvent is deprecated. Use apiGateway.updateEvent() instead.');
+    
     try {
       const { data, error } = await supabase
         .from('events')
         .update(updates)
-        .eq('id', id)
+        .eq('id', eventId)
         .select()
         .single();
 
@@ -224,122 +180,18 @@ export class EventsService {
   }
 
   /**
-   * Delete event
+   * @deprecated Use apiGateway.getEventAnalytics() instead
    */
-  static async deleteEvent(id: string): Promise<ApiResponse<{ success: boolean }>> {
+  static async getEventAnalytics(eventId: string): Promise<ApiResponse<any>> {
+    console.warn('EventsService.getEventAnalytics is deprecated. Use apiGateway.getEventAnalytics() instead.');
+    
     try {
-      const { error } = await supabase
-        .from('events')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      return {
-        data: { success: true },
-      };
+      // This method is now handled by Edge Functions
+      throw new Error('Use apiGateway.getEventAnalytics() instead');
     } catch (error: any) {
       const apiError: ApiError = {
-        code: 'DELETE_EVENT_FAILED',
-        message: error.message || 'Failed to delete event',
-        details: error,
-      };
-
-      throw apiError;
-    }
-  }
-
-  /**
-   * Get events by organizer
-   */
-  static async getEventsByOrganizer(orgId: string): Promise<ApiResponse<Event[]>> {
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`
-          *,
-          org:orgs(*),
-          tickets(*)
-        `)
-        .eq('org_id', orgId)
-        .order('start_at', { ascending: true });
-
-      if (error) throw error;
-
-      return {
-        data: data as Event[],
-      };
-    } catch (error: any) {
-      const apiError: ApiError = {
-        code: 'GET_EVENTS_BY_ORGANIZER_FAILED',
-        message: error.message || 'Failed to get events by organizer',
-        details: error,
-      };
-
-      throw apiError;
-    }
-  }
-
-  /**
-   * Search events
-   */
-  static async searchEvents(query: string): Promise<ApiResponse<Event[]>> {
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`
-          *,
-          org:orgs(*),
-          tickets(*)
-        `)
-        .or(`title.ilike.%${query}%,description.ilike.%${query}%,city.ilike.%${query}%`)
-        .eq('status', 'published')
-        .eq('visibility', 'public')
-        .order('start_at', { ascending: true });
-
-      if (error) throw error;
-
-      return {
-        data: data as Event[],
-      };
-    } catch (error: any) {
-      const apiError: ApiError = {
-        code: 'SEARCH_EVENTS_FAILED',
-        message: error.message || 'Failed to search events',
-        details: error,
-      };
-
-      throw apiError;
-    }
-  }
-
-  /**
-   * Get trending events
-   */
-  static async getTrendingEvents(limit: number = 10): Promise<ApiResponse<Event[]>> {
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`
-          *,
-          org:orgs(*),
-          tickets(*)
-        `)
-        .eq('status', 'published')
-        .eq('visibility', 'public')
-        .gte('start_at', new Date().toISOString())
-        .order('viewCount', { ascending: false })
-        .limit(limit);
-
-      if (error) throw error;
-
-      return {
-        data: data as Event[],
-      };
-    } catch (error: any) {
-      const apiError: ApiError = {
-        code: 'GET_TRENDING_EVENTS_FAILED',
-        message: error.message || 'Failed to get trending events',
+        code: 'GET_EVENT_ANALYTICS_FAILED',
+        message: error.message || 'Failed to get event analytics',
         details: error,
       };
 

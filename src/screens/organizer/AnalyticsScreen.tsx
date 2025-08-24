@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { theme } from '@/constants/theme';
-import { AnalyticsService } from '@/services/analyticsService';
+import { apiGateway } from '@yardpass/api';
 import { EventAnalytics } from '@/types';
 
 const AnalyticsScreen: React.FC = () => {
@@ -17,8 +17,14 @@ const AnalyticsScreen: React.FC = () => {
       setLoading(true);
       // This would typically get the event ID from route params
       const eventId = 'example-event-id';
-      const data = await AnalyticsService.getEventAnalytics(eventId);
-      setAnalytics(data);
+      const response = await apiGateway.getEventAnalytics({ eventId });
+      
+      if (response.error) {
+        console.error('Error loading analytics:', response.error.message);
+        return;
+      }
+      
+      setAnalytics(response.data);
     } catch (error) {
       console.error('Error loading analytics:', error);
     } finally {

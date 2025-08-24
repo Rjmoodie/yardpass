@@ -13,31 +13,24 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Create Supabase client with proper authentication
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    );
 
-    // Extract user from JWT token
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({
-        error: 'No authorization header'
-      }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return new Response(JSON.stringify({
-        error: 'Invalid token'
-      }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    // Get the authenticated user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const url = new URL(req.url);
@@ -57,7 +50,7 @@ serve(async (req) => {
         });
       }
 
-      const { data: behaviorId, error: behaviorError } = await supabase.rpc('track_user_behavior', {
+      const { data: behaviorId, error: behaviorError } = await supabaseClient.rpc('track_user_behavior', {
         p_user_id: user.id,
         p_event_id: event_id,
         p_behavior_type: behavior_type,
@@ -85,7 +78,7 @@ serve(async (req) => {
     }
 
     // GET - Generate recommendations
-    const recommendations = await generateRecommendations(supabase, user.id, limit, recommendationType);
+    const recommendations = await generateRecommendations(supabaseClient, user.id, limit, recommendationType);
 
     return new Response(JSON.stringify({
       recommendations,
@@ -108,7 +101,7 @@ serve(async (req) => {
   }
 });
 
-async function generateRecommendations(supabase: any, userId: string, limit: number, type: string) {
+async function generateRecommendations(supabaseClient: any, userId: string, limit: number, type: string) {
   const recommendations = {
     collaborative: [],
     content_based: [],
@@ -120,14 +113,14 @@ async function generateRecommendations(supabase: any, userId: string, limit: num
 
   try {
     // Get user preferences
-    const { data: userPrefs } = await supabase
+    const { data: userPrefs } = await supabaseClient
       .from('user_preferences')
       .select('*')
       .eq('user_id', userId)
       .single();
 
     // Get user behavior history
-    const { data: userBehavior } = await supabase
+    const { data: userBehavior } = await supabaseClient
       .from('user_behavior_logs')
       .select('event_id, behavior_type, timestamp')
       .eq('user_id', userId)
@@ -136,12 +129,12 @@ async function generateRecommendations(supabase: any, userId: string, limit: num
 
     // 1. Collaborative Filtering Recommendations
     if (type === 'all' || type === 'collaborative') {
-      recommendations.collaborative = await generateCollaborativeRecommendations(supabase, userId, limit);
+      recommendations.collaborative = await generateCollaborativeRecommendations(supabaseClient, userId, limit);
     }
 
     // 2. Content-Based Recommendations
     if (type === 'all' || type === 'content_based') {
-      recommendations.content_based = await generateContentBasedRecommendations(supabase, userId, userPrefs, limit);
+      recommendations.content_based = await generateContentBasedRecommendations(supabaseClient, userId, userPrefs, limit);
     }
 
     // 3. Popularity-Based Recommendations

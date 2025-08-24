@@ -13,10 +13,25 @@ serve(async (req) => {
   }
 
   try {
-    // Create Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    // Create Supabase client with proper authentication
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    );
+
+    // Get the authenticated user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Get request data
     const { event_id, analytics_type, start_date, end_date, force_refresh } = await req.json()
@@ -29,27 +44,8 @@ serve(async (req) => {
       )
     }
 
-    // Check if user is authenticated
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Authorization header required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
     // Check if user has access to this event
-    const { data: event, error: eventError } = await supabase
+    const { data: event, error: eventError } = await supabaseClient
       .from('events')
       .select('id, created_by, owner_context_type, owner_context_id')
       .eq('id', event_id)
@@ -65,7 +61,7 @@ serve(async (req) => {
     // Check if user is event manager
     const isEventManager = event.created_by === user.id || 
       (event.owner_context_type === 'organization' && 
-       await checkOrgAccess(supabase, user.id, event.owner_context_id))
+       await checkOrgAccess(supabaseClient, user.id, event.owner_context_id))
 
     if (!isEventManager) {
       return new Response(

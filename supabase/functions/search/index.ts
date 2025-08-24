@@ -15,37 +15,24 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Create Supabase client with proper authentication
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    );
 
-    // Extract user from JWT token
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({
-        error: 'No authorization header'
-      }), {
-        status: 401,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return new Response(JSON.stringify({
-        error: 'Invalid token'
-      }), {
-        status: 401,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      });
+    // Get the authenticated user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Parse query parameters
@@ -80,7 +67,7 @@ serve(async (req) => {
 
     // Search events
     if (types.includes('events')) {
-      const { data: events, error: eventsError } = await searchEvents(supabase, query, lat, lng, radiusKm, offset, limit);
+      const { data: events, error: eventsError } = await searchEvents(supabaseClient, query, lat, lng, radiusKm, offset, limit);
       if (!eventsError && events) {
         results.events = events;
       }
@@ -88,7 +75,7 @@ serve(async (req) => {
 
     // Search organizations
     if (types.includes('organizations')) {
-      const { data: organizations, error: orgsError } = await searchOrganizations(supabase, query, offset, limit);
+      const { data: organizations, error: orgsError } = await searchOrganizations(supabaseClient, query, offset, limit);
       if (!orgsError && organizations) {
         results.organizations = organizations;
       }
@@ -96,7 +83,7 @@ serve(async (req) => {
 
     // Search venues
     if (types.includes('venues')) {
-      const { data: venues, error: venuesError } = await searchVenues(supabase, query, lat, lng, radiusKm, offset, limit);
+      const { data: venues, error: venuesError } = await searchVenues(supabaseClient, query, lat, lng, radiusKm, offset, limit);
       if (!venuesError && venues) {
         results.venues = venues;
       }
@@ -106,7 +93,7 @@ serve(async (req) => {
     results.highlights = generateHighlights(query, results);
 
     // Log search for analytics
-    await logSearch(supabase, user.id, query, types, lat, lng, radiusKm);
+    await logSearch(supabaseClient, user.id, query, types, lat, lng, radiusKm);
 
     return new Response(JSON.stringify({
       query,
@@ -151,19 +138,20 @@ async function searchEvents(supabase, query, lat, lng, radiusKm, offset, limit) 
     .from('events')
     .select(`
       *,
-      ticket_tiers!inner(
+      ticket_tiers(
         id,
         name,
-        price_cents,
+        price,
         currency,
-        available_quantity,
-        is_active
+        max_quantity,
+        sold_quantity,
+        status
       ),
-      organizations!inner(
+      organizations!events_owner_context_id_fkey(
         id,
         name,
         slug,
-        verification_status
+        logo_url
       )
     `)
     .eq('status', 'published')
@@ -194,8 +182,8 @@ async function searchEvents(supabase, query, lat, lng, radiusKm, offset, limit) 
 
   // Process events with highlights and scoring
   const processedEvents = events?.map((event) => {
-    const activeTiers = event.ticket_tiers?.filter((tier) => tier.is_active && tier.available_quantity > 0) || [];
-    const fromPrice = activeTiers.length > 0 ? Math.min(...activeTiers.map((tier) => tier.price_cents)) : null;
+    const activeTiers = event.ticket_tiers?.filter((tier) => tier.status === 'active' && tier.sold_quantity < tier.max_quantity) || [];
+    const fromPrice = activeTiers.length > 0 ? Math.min(...activeTiers.map((tier) => tier.price)) : null;
 
     let distance = null;
     if (lat !== 0 && lng !== 0 && event.latitude && event.longitude) {
@@ -219,15 +207,15 @@ async function searchEvents(supabase, query, lat, lng, radiusKm, offset, limit) 
       country: event.country,
       cover_image_url: event.cover_image_url,
       category: event.category,
-      from_price_cents: fromPrice,
-      from_price_currency: fromPrice ? activeTiers.find((tier) => tier.price_cents === fromPrice)?.currency : null,
+      from_price: fromPrice,
+      from_price_currency: fromPrice ? activeTiers.find((tier) => tier.price === fromPrice)?.currency : null,
       distance_km: distance,
-      organization: {
+      organization: event.organizations ? {
         id: event.organizations.id,
         name: event.organizations.name,
         slug: event.organizations.slug,
-        verification_status: event.organizations.verification_status
-      },
+        logo_url: event.organizations.logo_url
+      } : null,
       relevance_score: relevanceScore,
       highlights: generateEventHighlights(event, query)
     };
@@ -256,7 +244,7 @@ async function searchOrganizations(supabase, query, offset, limit) {
     name: org.name,
     slug: org.slug,
     description: org.description,
-    verification_status: org.verification_status,
+    logo_url: org.logo_url,
     relevance_score: calculateOrgRelevance(org, query),
     highlights: generateOrgHighlights(org, query)
   })) || [];
@@ -431,18 +419,21 @@ function generateHighlights(query, results) {
   return highlights;
 }
 
-async function logSearch(supabase, userId, query, types, lat, lng, radiusKm) {
+async function logSearch(supabaseClient, userId, query, types, lat, lng, radiusKm) {
   try {
-    await supabase
-      .from('search_logs')
+    await supabaseClient
+      .from('user_behavior_logs')
       .insert({
         user_id: userId,
-        query,
-        search_types: types,
-        location_lat: lat || null,
-        location_lng: lng || null,
-        radius_km: radiusKm,
-        results_count: 0 // Will be updated after processing
+        behavior_type: 'search',
+        behavior_data: {
+          query,
+          search_types: types,
+          location_lat: lat || null,
+          location_lng: lng || null,
+          radius_km: radiusKm,
+          results_count: 0
+        }
       });
   } catch (error) {
     console.error('Failed to log search:', error);

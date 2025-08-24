@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
+  'Access-Control-Allow-Methods': 'POST, GET, PUT, DELETE, OPTIONS'
 };
 
 serve(async (req) => {
@@ -15,37 +15,24 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Create Supabase client with proper authentication
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    );
 
-    // Extract user from JWT token
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({
-        error: 'No authorization header'
-      }), {
-        status: 401,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return new Response(JSON.stringify({
-        error: 'Invalid token'
-      }), {
-        status: 401,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      });
+    // Get the authenticated user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const url = new URL(req.url);
@@ -54,42 +41,75 @@ serve(async (req) => {
     const offset = (page - 1) * limit;
     const eventId = url.searchParams.get('event_id');
     const userId = url.searchParams.get('user_id');
+    const postId = url.searchParams.get('post_id');
 
     if (req.method === 'POST') {
-      // Create new post
       const requestBody = await req.json();
       const { content, event_id, media_urls, post_type } = requestBody;
 
       if (!content || !event_id) {
-        return new Response(JSON.stringify({
-          error: 'Content and event_id are required'
-        }), {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          }
-        });
+        return new Response(
+          JSON.stringify({ error: 'Content and event_id are required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
-      const { data: post, error: postError } = await supabase
+      // Verify user has access to the event
+      const { data: event, error: eventError } = await supabaseClient
+        .from('events')
+        .select('id, visibility, created_by, owner_context_type, owner_context_id')
+        .eq('id', event_id)
+        .single();
+
+      if (eventError || !event) {
+        return new Response(
+          JSON.stringify({ error: 'Event not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check if user can post to this event
+      let canPost = false;
+      if (event.visibility === 'public') {
+        canPost = true;
+      } else if (event.created_by === user.id) {
+        canPost = true;
+      } else if (event.owner_context_type === 'organization') {
+        const { data: orgMembership } = await supabaseClient
+          .from('org_members')
+          .select('id')
+          .eq('org_id', event.owner_context_id)
+          .eq('user_id', user.id)
+          .single();
+        canPost = !!orgMembership;
+      }
+
+      if (!canPost) {
+        return new Response(
+          JSON.stringify({ error: 'You do not have permission to post to this event' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: post, error: postError } = await supabaseClient
         .from('posts')
         .insert({
           user_id: user.id,
           event_id,
           content,
           media_urls: media_urls || [],
-          post_type: post_type || 'general'
+          post_type: post_type || 'general',
+          is_active: true
         })
         .select(`
           *,
-          user_profiles!inner(
+          user_profiles!posts_user_id_fkey(
             id,
             display_name,
             avatar_url,
             username
           ),
-          events!inner(
+          events!posts_event_id_fkey(
             id,
             title,
             slug,
@@ -100,40 +120,98 @@ serve(async (req) => {
 
       if (postError) {
         console.error('Error creating post:', postError);
-        return new Response(JSON.stringify({
-          error: 'Failed to create post'
-        }), {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          }
-        });
+        return new Response(
+          JSON.stringify({ error: 'Failed to create post' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
-      return new Response(JSON.stringify({
-        post
-      }), {
-        status: 201,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Log the post creation
+      await supabaseClient
+        .from('user_behavior_logs')
+        .insert({
+          user_id: user.id,
+          event_id: event_id,
+          behavior_type: 'create_post',
+          behavior_data: { post_id: post.id, post_type: post_type }
+        });
+
+      return new Response(
+        JSON.stringify({ success: true, post }),
+        { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (req.method === 'PUT' && postId) {
+      // Update post (only by author)
+      const requestBody = await req.json();
+      const { content, media_urls } = requestBody;
+
+      if (!content) {
+        return new Response(
+          JSON.stringify({ error: 'Content is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: post, error: updateError } = await supabaseClient
+        .from('posts')
+        .update({
+          content,
+          media_urls: media_urls || [],
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', postId)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (updateError || !post) {
+        return new Response(
+          JSON.stringify({ error: 'Post not found or you do not have permission to edit it' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, post }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (req.method === 'DELETE' && postId) {
+      // Delete post (only by author)
+      const { error: deleteError } = await supabaseClient
+        .from('posts')
+        .update({ is_active: false })
+        .eq('id', postId)
+        .eq('user_id', user.id);
+
+      if (deleteError) {
+        return new Response(
+          JSON.stringify({ error: 'Post not found or you do not have permission to delete it' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Post deleted successfully' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // GET - Fetch social feed
-    let query = supabase
+    let query = supabaseClient
       .from('posts')
       .select(`
         *,
-        user_profiles!inner(
+        user_profiles!posts_user_id_fkey(
           id,
           display_name,
           avatar_url,
           username
         ),
-        events!inner(
+        events!posts_event_id_fkey(
           id,
           title,
           slug,
@@ -149,7 +227,7 @@ serve(async (req) => {
           id,
           content,
           created_at,
-          user_profiles!inner(
+          user_profiles!post_comments_user_id_fkey(
             id,
             display_name,
             avatar_url,
@@ -177,15 +255,10 @@ serve(async (req) => {
 
     if (postsError) {
       console.error('Error fetching posts:', postsError);
-      return new Response(JSON.stringify({
-        error: 'Failed to fetch posts'
-      }), {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      });
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch posts' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Process posts with engagement metrics
@@ -230,37 +303,30 @@ serve(async (req) => {
     }) || [];
 
     // Get total count for pagination
-    const { count: totalCount } = await supabase
+    const { count: totalCount } = await supabaseClient
       .from('posts')
-      .select('*', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true);
 
-    return new Response(JSON.stringify({
-      posts: processedPosts,
-      pagination: {
-        page,
-        limit,
-        total: totalCount || 0,
-        total_pages: Math.ceil((totalCount || 0) / limit)
-      }
-    }), {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        posts: processedPosts,
+        pagination: {
+          page,
+          limit,
+          total: totalCount || 0,
+          total_pages: Math.ceil((totalCount || 0) / limit)
+        }
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
     console.error('Social feed error:', error);
-    return new Response(JSON.stringify({
-      error: 'Internal server error',
-      details: error.message
-    }), {
-      status: 500,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
-    });
+    return new Response(
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });

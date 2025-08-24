@@ -13,26 +13,22 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('YARDPASS_SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('YARDPASS_SERVICE_ROLE_KEY')!
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    // Create Supabase client with proper authentication
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    )
 
-    // Extract user from JWT token
-    const authHeader = req.headers.get('authorization')
-    if (!authHeader) {
+    // Get the authenticated user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    if (userError || !user) {
       return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -49,27 +45,24 @@ serve(async (req) => {
     const offset = (page - 1) * limit
 
     // Build the base query
-    let query = supabase
+    let query = supabaseClient
       .from('events')
       .select(`
         *,
         ticket_tiers!inner(
           id,
           name,
-          price_cents,
+          price,
           currency,
-          available_quantity,
-          is_active
+          max_quantity,
+          sold_quantity,
+          status
         ),
-        organizations!inner(
+        organizations!events_owner_context_id_fkey(
           id,
           name,
           slug,
-          verification_status
-        ),
-        user_event_badges!inner(
-          badge_kind,
-          access_level
+          logo_url
         )
       `)
       .eq('status', 'published')
@@ -130,14 +123,14 @@ serve(async (req) => {
     }
 
     // Get user interests for personalization
-    const { data: userInterests } = await supabase
+    const { data: userInterests } = await supabaseClient
       .from('user_interests')
       .select('category, interest_score')
       .eq('user_id', user.id)
       .order('interest_score', { ascending: false })
 
-    // Get user's friends (for social proof)
-    const { data: userFriends } = await supabase
+    // Get user's connections (for social proof)
+    const { data: userConnections } = await supabaseClient
       .from('user_connections')
       .select('connected_user_id')
       .eq('user_id', user.id)
@@ -146,8 +139,8 @@ serve(async (req) => {
     // Process and rank events
     const processedEvents = events?.map(event => {
       // Calculate from price
-      const activeTiers = event.ticket_tiers?.filter(tier => tier.is_active && tier.available_quantity > 0) || []
-      const fromPrice = activeTiers.length > 0 ? Math.min(...activeTiers.map(tier => tier.price_cents)) : null
+      const activeTiers = event.ticket_tiers?.filter(tier => tier.status === 'active' && tier.sold_quantity < tier.max_quantity) || []
+      const fromPrice = activeTiers.length > 0 ? Math.min(...activeTiers.map(tier => tier.price)) : null
 
       // Calculate distance if coordinates provided
       let distance = null
@@ -156,7 +149,7 @@ serve(async (req) => {
       }
 
       // Calculate social proof score
-      const socialScore = calculateSocialScore(event, userFriends)
+      const socialScore = calculateSocialScore(event, userConnections)
 
       // Calculate interest match score
       const interestScore = calculateInterestScore(event, userInterests)
@@ -178,16 +171,15 @@ serve(async (req) => {
         country: event.country,
         cover_image_url: event.cover_image_url,
         category: event.category,
-        from_price_cents: fromPrice,
-        from_price_currency: fromPrice ? activeTiers.find(tier => tier.price_cents === fromPrice)?.currency : null,
+        from_price: fromPrice,
+        from_price_currency: fromPrice ? activeTiers.find(tier => tier.price === fromPrice)?.currency : null,
         distance_km: distance,
-        organization: {
+        organization: event.organizations ? {
           id: event.organizations.id,
           name: event.organizations.name,
           slug: event.organizations.slug,
-          verification_status: event.organizations.verification_status
-        },
-        user_badge: event.user_event_badges?.[0] || null,
+          logo_url: event.organizations.logo_url
+        } : null,
         social_score: socialScore,
         interest_score: interestScore,
         trending_score: trendingScore,
@@ -199,15 +191,28 @@ serve(async (req) => {
     processedEvents.sort((a, b) => b.total_score - a.total_score)
 
     // Get total count for pagination
-    const { count: totalCount } = await supabase
+    const { count: totalCount } = await supabaseClient
       .from('events')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'published')
       .eq('visibility', 'public')
       .gte('start_at', new Date().toISOString())
 
+    // Log the discovery behavior
+    await supabaseClient
+      .from('user_behavior_logs')
+      .insert({
+        user_id: user.id,
+        behavior_type: 'discover_feed',
+        behavior_data: {
+          filters: { lat, lng, radius_km: radiusKm, categories, date_range: dateRange },
+          results_count: processedEvents.length
+        }
+      })
+
     return new Response(
       JSON.stringify({
+        success: true,
         events: processedEvents,
         pagination: {
           page,
@@ -251,14 +256,14 @@ function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 }
 
 // Helper function to calculate social proof score
-function calculateSocialScore(event: any, userFriends: any[]): number {
-  if (!userFriends || userFriends.length === 0) return 0.5
+function calculateSocialScore(event: any, userConnections: any[]): number {
+  if (!userConnections || userConnections.length === 0) return 0.5
 
-  // In a real implementation, you'd check if friends are attending
+  // In a real implementation, you'd check if connections are attending
   // For now, we'll use a simple random score based on event popularity
   const baseScore = 0.3
-  const friendMultiplier = Math.min(userFriends.length * 0.1, 0.7)
-  return Math.min(baseScore + friendMultiplier, 1.0)
+  const connectionMultiplier = Math.min(userConnections.length * 0.1, 0.7)
+  return Math.min(baseScore + connectionMultiplier, 1.0)
 }
 
 // Helper function to calculate interest match score

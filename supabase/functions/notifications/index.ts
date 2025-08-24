@@ -13,31 +13,24 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Create Supabase client with proper authentication
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    );
 
-    // Extract user from JWT token
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({
-        error: 'No authorization header'
-      }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return new Response(JSON.stringify({
-        error: 'Invalid token'
-      }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    // Get the authenticated user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const url = new URL(req.url);
@@ -60,31 +53,38 @@ serve(async (req) => {
 
       // Create notification
       if (notification_type && title && message) {
-        const { data: notificationId, error: notificationError } = await supabase.rpc('create_notification', {
-          p_user_id: recipient_id || user.id,
-          p_notification_type: notification_type,
-          p_title: title,
-          p_message: message,
-          p_data: data || {}
-        });
+        const notificationData = {
+          user_id: recipient_id || user.id,
+          type: notification_type,
+          title,
+          message,
+          data: data || {},
+          status: 'unread',
+          created_at: new Date().toISOString()
+        };
+
+        const { data: notification, error: notificationError } = await supabaseClient
+          .from('notifications')
+          .insert(notificationData)
+          .select()
+          .single();
 
         if (notificationError) {
           console.error('Error creating notification:', notificationError);
-          return new Response(JSON.stringify({
-            error: 'Failed to create notification'
-          }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
+          return new Response(
+            JSON.stringify({ error: 'Failed to create notification' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
 
-        return new Response(JSON.stringify({
-          notification_id: notificationId,
-          message: 'Notification created successfully'
-        }), {
-          status: 201,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            notification,
+            message: 'Notification created successfully'
+          }),
+          { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       // Create message
@@ -97,7 +97,7 @@ serve(async (req) => {
       } = requestBody;
 
       if (msgRecipientId && content) {
-        const { data: message, error: messageError } = await supabase
+        const { data: message, error: messageError } = await supabaseClient
           .from('messages')
           .insert({
             sender_id: user.id,
@@ -109,28 +109,27 @@ serve(async (req) => {
           })
           .select(`
             *,
-            sender:user_profiles!sender_id(id, display_name, avatar_url, username),
-            recipient:user_profiles!recipient_id(id, display_name, avatar_url, username)
+            sender:user_profiles!messages_sender_id_fkey(id, display_name, avatar_url, username),
+            recipient:user_profiles!messages_recipient_id_fkey(id, display_name, avatar_url, username)
           `)
           .single();
 
         if (messageError) {
           console.error('Error creating message:', messageError);
-          return new Response(JSON.stringify({
-            error: 'Failed to create message'
-          }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
+          return new Response(
+            JSON.stringify({ error: 'Failed to create message' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
 
-        return new Response(JSON.stringify({
-          message,
-          message_id: message.id
-        }), {
-          status: 201,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message,
+            message_id: message.id
+          }),
+          { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
 
@@ -138,43 +137,75 @@ serve(async (req) => {
       const { notification_id } = await req.json();
       
       if (notification_id) {
-        const { data: success, error: updateError } = await supabase.rpc('mark_notification_read', {
-          p_notification_id: notification_id
-        });
+        const { data: notification, error: updateError } = await supabaseClient
+          .from('notifications')
+          .update({ 
+            status: 'read',
+            read_at: new Date().toISOString()
+          })
+          .eq('id', notification_id)
+          .eq('user_id', user.id)
+          .select()
+          .single();
 
-        if (updateError) {
-          console.error('Error marking notification as read:', updateError);
-          return new Response(JSON.stringify({
-            error: 'Failed to update notification'
-          }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
+        if (updateError || !notification) {
+          return new Response(
+            JSON.stringify({ error: 'Notification not found or you do not have permission to update it' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
 
-        return new Response(JSON.stringify({
-          success,
-          message: 'Notification marked as read'
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            notification,
+            message: 'Notification marked as read'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    if (req.method === 'DELETE') {
+      const { notification_id } = await req.json();
+      
+      if (notification_id) {
+        const { error: deleteError } = await supabaseClient
+          .from('notifications')
+          .delete()
+          .eq('id', notification_id)
+          .eq('user_id', user.id);
+
+        if (deleteError) {
+          return new Response(
+            JSON.stringify({ error: 'Notification not found or you do not have permission to delete it' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Notification deleted successfully'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
 
     // GET - Fetch notifications
-    let query = supabase
+    let query = supabaseClient
       .from('notifications')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (unreadOnly) {
-      query = query.eq('is_read', false);
+      query = query.eq('status', 'unread');
     }
 
     if (notificationType) {
-      query = query.eq('notification_type', notificationType);
+      query = query.eq('type', notificationType);
     }
 
     query = query.range(offset, offset + limit - 1);
@@ -183,47 +214,45 @@ serve(async (req) => {
 
     if (notificationsError) {
       console.error('Error fetching notifications:', notificationsError);
-      return new Response(JSON.stringify({
-        error: 'Failed to fetch notifications'
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch notifications' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get unread count
-    const { data: unreadCount } = await supabase.rpc('get_unread_notifications_count', {
-      p_user_id: user.id
-    });
+    const { count: unreadCount } = await supabaseClient
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'unread');
 
     // Get total count for pagination
-    const { count: totalCount } = await supabase
+    const { count: totalCount } = await supabaseClient
       .from('notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id);
 
-    return new Response(JSON.stringify({
-      notifications: notifications || [],
-      unread_count: unreadCount || 0,
-      pagination: {
-        page,
-        limit,
-        total: totalCount || 0,
-        total_pages: Math.ceil((totalCount || 0) / limit)
-      }
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        notifications: notifications || [],
+        unread_count: unreadCount || 0,
+        pagination: {
+          page,
+          limit,
+          total: totalCount || 0,
+          total_pages: Math.ceil((totalCount || 0) / limit)
+        }
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
     console.error('Notifications error:', error);
-    return new Response(JSON.stringify({
-      error: 'Internal server error',
-      details: error.message
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });

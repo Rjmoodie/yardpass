@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { theme } from '@/constants/theme';
-import { ReferenceDataService } from '@/services/referenceData';
+import { apiGateway } from '@yardpass/api';
 import { EventCategoryData } from '@/types';
 
 interface CategoryFilterProps {
@@ -32,8 +32,14 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
   const loadCategories = async () => {
     try {
       setLoading(true);
-      const data = await ReferenceDataService.getEventCategories();
-      setCategories(data);
+      const response = await apiGateway.getReferenceData({ type: 'event_categories' });
+      
+      if (response.error) {
+        console.error('Error loading categories:', response.error.message);
+        return;
+      }
+      
+      setCategories(response.data);
     } catch (error) {
       console.error('Error loading categories:', error);
     } finally {

@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '@/hooks/useTheme';
-import { SearchService } from '@/services/search';
+import { apiGateway } from '@yardpass/api';
 import { debounce } from 'lodash';
 
 // ✅ OPTIMIZED: Enhanced search result interface
@@ -120,11 +120,18 @@ const SearchScreen: React.FC = () => {
       const startTime = performance.now();
 
       try {
-        const searchResponse = await SearchService.search({
-          q: query,
-          type: activeTab === 'all' ? undefined : activeTab,
-          limit: 20
-        });
+              const response = await apiGateway.search({
+        q: query,
+        types: activeTab === 'all' ? undefined : [activeTab],
+        limit: 20
+      });
+      
+      if (response.error) {
+        console.error('Search error:', response.error.message);
+        return;
+      }
+      
+      const searchResponse = response.data;
 
         if (searchResponse.data) {
           const results = transformSearchResults(searchResponse.data);
@@ -159,9 +166,20 @@ const SearchScreen: React.FC = () => {
       }
 
       try {
-        const suggestionsResponse = await SearchService.getSuggestions(query, 5);
-        if (suggestionsResponse.data) {
-          setSuggestions(suggestionsResponse.data);
+        const response = await apiGateway.search({
+          q: query,
+          types: ['suggestions'],
+          limit: 5
+        });
+        
+        if (response.error) {
+          console.error('Suggestions error:', response.error.message);
+          return;
+        }
+        
+        const suggestionsResponse = response.data;
+        if (suggestionsResponse.suggestions) {
+          setSuggestions(suggestionsResponse.suggestions);
           setShowSuggestions(true);
         }
       } catch (error) {
@@ -206,7 +224,22 @@ const SearchScreen: React.FC = () => {
     try {
       // ✅ TRACK: Result click analytics
       if (searchAnalytics) {
-        await SearchService.trackResultClick(
+        try {
+          await apiGateway.trackUserBehavior({
+            action: 'search_result_click',
+            metadata: {
+              query: searchAnalytics.query,
+              resultId: result.id,
+              resultType: result.type,
+              position,
+              searchTime: searchAnalytics.searchTime
+            }
+          });
+        } catch (error) {
+          console.error('Analytics error:', error);
+          // Don't block user experience for analytics errors
+        }
+      console.log('Track result click:', {
           searchAnalytics.query,
           result.id,
           result.type,
