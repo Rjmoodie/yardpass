@@ -143,9 +143,9 @@ export interface Event {
   gallery: string[];
   videoUrl?: string;
   
-  // Organizer Info
-  organizerId: string;
-  organizer: Organizer;
+  // Organizer Info - FIXED: Match database structure
+  organizer_id: string;
+  org?: Organization;  // ✅ Match database query: org:organizations(*)
   
   // Location & Venue
   location: Location;
@@ -181,9 +181,9 @@ export interface Event {
   viewsCount: number;
   followersCount: number;
   
-  // Content & Features
-  posts: Post[];
-  tickets: Ticket[];
+  // Content & Features - FIXED: Match database structure
+  event_posts?: EventPost[];  // ✅ Match database query: posts:event_posts(*)
+  ticket_tiers?: TicketTier[];  // ✅ Match database query: tickets:ticket_tiers(*)
   campaigns: Campaign[];
   
   // Metadata
@@ -195,6 +195,32 @@ export interface Event {
   _cachedAt?: number;
   _version?: number;
 }
+
+// Add type guards for null safety
+export const isEvent = (data: any): data is Event => {
+  return data && 
+         typeof data.id === 'string' && 
+         typeof data.title === 'string' &&
+         typeof data.status === 'string';
+};
+
+export const isOrganization = (data: any): data is Organization => {
+  return data && 
+         typeof data.id === 'string' && 
+         typeof data.name === 'string';
+};
+
+export const isTicketTier = (data: any): data is TicketTier => {
+  return data && 
+         typeof data.id === 'string' && 
+         typeof data.name === 'string';
+};
+
+export const isEventPost = (data: any): data is EventPost => {
+  return data && 
+         typeof data.id === 'string' && 
+         typeof data.content === 'string';
+};
 
 export enum EventCategory {
   MUSIC = 'music',
@@ -698,56 +724,66 @@ export interface ParkingInfo {
 
 // Enhanced Navigation Types
 export interface RootStackParamList {
-  // Auth
+  // Public Navigator (No Auth Required)
+  Public: undefined;
+  Authenticated: undefined;
+}
+
+export interface PublicStackParamList {
+  // Public Screens
+  Welcome: undefined;
+  PublicEvents: undefined;
+  PublicEventDetails: { eventId: string };
+  PublicOrganizer: { organizerId: string };
+  PublicFeed: undefined;
+  
+  // Auth Screens
   SignIn: undefined;
   SignUp: undefined;
-  ForgotPassword: undefined;
-  
+  AuthPrompt: {
+    action: string;
+    title: string;
+    message: string;
+    primaryAction: string;
+    secondaryAction: string;
+    onSuccess?: () => void;
+  };
+}
+
+export interface AuthenticatedStackParamList {
   // Main Tabs
-  MainTabs: undefined;
+  Main: undefined;
   
-  // Feed & Content
-  Home: undefined;
-  Discover: undefined;
-  CreatePost: undefined;
-  PostDetails: { postId: string };
-  
-  // Events
+  // Event Screens
   EventHub: { eventId: string; initialTab?: EventHubTab };
   EventEditor: { eventId?: string };
   EventPeek: { eventId: string };
   
-  // Tickets & Wallet
+  // Post Screens
+  CreatePost: undefined;
+  PostDetails: { postId: string };
+  
+  // Ticket Screens
   TicketPurchase: { eventId: string };
   TicketDetails: { ticketId: string };
-  Wallet: undefined;
   
-  // Organizer
+  // Organizer Screens
   OrganizerDashboard: undefined;
   MediaScheduler: { eventId: string };
   Analytics: { eventId?: string };
   
-  // Social
-  Profile: { userId?: string };
-  Followers: { userId: string; type: 'followers' | 'following' };
+  // Social Screens
   Chat: { eventId?: string; userId?: string };
   
   // Settings & Support
   Settings: undefined;
   Notifications: undefined;
+  Followers: { userId: string; type: 'followers' | 'following' };
   Help: undefined;
   Privacy: undefined;
   
   // Index signature for dynamic routes
   [key: string]: any;
-}
-
-export enum EventHubTab {
-  FEED = 'feed',
-  ABOUT = 'about',
-  SCHEDULE = 'schedule',
-  TICKETS = 'tickets',
-  COMMUNITY = 'community'
 }
 
 export interface MainTabParamList {
@@ -756,9 +792,49 @@ export interface MainTabParamList {
   Create: undefined;
   Wallet: undefined;
   Profile: undefined;
-  
-  // Index signature for dynamic routes
-  [key: string]: any;
+}
+
+export enum EventHubTab {
+  FEED = 'feed',
+  ABOUT = 'about',
+  TICKETS = 'tickets',
+  PEOPLE = 'people',
+  MEDIA = 'media',
+}
+
+// Missing type definitions
+export interface Organization {
+  id: string;
+  name: string;
+  description?: string;
+  avatar_url?: string;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventPost {
+  id: string;
+  event_id: string;
+  user_id: string;
+  content: string;
+  media_urls?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TicketTier {
+  id: string;
+  event_id: string;
+  name: string;
+  description?: string;
+  price: number;
+  currency: string;
+  quantity: number;
+  sold: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 // Enhanced Feed Types

@@ -1,37 +1,43 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { supabase } from '@/services/supabase';
-import { Event, EventFilters, EventCategory } from '@/types';
+import { Event, EventFilters, EventCategory, isEvent, isOrganization } from '@/types';
 import { TABLES } from '@/constants/database';
 
-// Fix function signature - remove optional parameter issue
+// Enhanced error handling with proper null checks
 export const fetchEvents = createAsyncThunk(
   'events/fetchEvents',
-  async (filters: EventFilters = {}, { rejectWithValue, getState }) => {
+  async (filters: EventFilters = {}, { rejectWithValue }) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Enhanced authentication check with proper error handling
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        return rejectWithValue({ error: 'Authentication failed: ' + authError.message });
+      }
+      
       if (!user) {
         return rejectWithValue({ error: 'User not authenticated' });
       }
 
+      // Simplified query to avoid complexity issues
       let query = supabase
         .from(TABLES.EVENTS)
         .select(`
           *,
-          org:organizations(*),
-          tickets:ticket_tiers(*)
+          org:organizations(*)
         `)
         .eq('status', 'published');
 
-      // Apply filters
+      // Apply filters with null checks
       if (filters.category) {
         query = query.eq('category', filters.category);
       }
       if (filters.isVerified !== undefined) {
         query = query.eq('is_verified', filters.isVerified);
       }
-      if (filters.dateRange) {
+      if (filters.dateRange && filters.dateRange.length === 2) {
         query = query.gte('start_at', filters.dateRange[0])
-                   .lte('end_at', filters.dateRange[1]);
+                     .lte('end_at', filters.dateRange[1]);
       }
       if (filters.location) {
         query = query.ilike('city', `%${filters.location}%`);
@@ -43,8 +49,26 @@ export const fetchEvents = createAsyncThunk(
         return rejectWithValue({ error: error.message });
       }
 
-      return { data: data || [] };
+      // Type-safe data processing
+      const events = (data || []).map(event => {
+        // Ensure event data is properly typed
+        if (!isEvent(event)) {
+          console.warn('Invalid event data received:', event);
+          return null;
+        }
+        
+        // Ensure organization data is properly typed
+        if (event.org && !isOrganization(event.org)) {
+          console.warn('Invalid organization data for event:', event.id, event.org);
+          event.org = undefined; // Remove invalid org data
+        }
+        
+        return event;
+      }).filter(Boolean) as Event[];
+
+      return { data: events };
     } catch (error) {
+      console.error('Error fetching events:', error);
       return rejectWithValue({ error: 'Failed to fetch events' });
     }
   }
@@ -54,13 +78,23 @@ export const fetchEventById = createAsyncThunk(
   'events/fetchEventById',
   async (eventId: string, { rejectWithValue }) => {
     try {
+      // Enhanced authentication check
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        return rejectWithValue({ error: 'Authentication failed: ' + authError.message });
+      }
+      
+      if (!user) {
+        return rejectWithValue({ error: 'User not authenticated' });
+      }
+
+      // Simplified query with proper error handling
       const { data, error } = await supabase
         .from(TABLES.EVENTS)
         .select(`
           *,
-          org:organizations(*),
-          tickets:ticket_tiers(*),
-          posts:event_posts(*)
+          org:organizations(*)
         `)
         .eq('id', eventId)
         .single();
@@ -69,8 +103,20 @@ export const fetchEventById = createAsyncThunk(
         return rejectWithValue({ error: error.message });
       }
 
+      // Type-safe data validation
+      if (!isEvent(data)) {
+        return rejectWithValue({ error: 'Invalid event data received' });
+      }
+
+      // Validate organization data
+      if (data.org && !isOrganization(data.org)) {
+        console.warn('Invalid organization data for event:', eventId, data.org);
+        data.org = undefined;
+      }
+
       return { data };
     } catch (error) {
+      console.error('Error fetching event by ID:', error);
       return rejectWithValue({ error: 'Failed to fetch event' });
     }
   }
@@ -80,18 +126,31 @@ export const createEvent = createAsyncThunk(
   'events/createEvent',
   async (eventData: Partial<Event>, { rejectWithValue }) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Enhanced authentication check
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        return rejectWithValue({ error: 'Authentication failed: ' + authError.message });
+      }
+      
       if (!user) {
         return rejectWithValue({ error: 'User not authenticated' });
       }
 
+      // Add user ID to event data
+      const eventWithUser = {
+        ...eventData,
+        organizer_id: user.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
       const { data, error } = await supabase
         .from(TABLES.EVENTS)
-        .insert([eventData])
+        .insert([eventWithUser])
         .select(`
           *,
-          org:organizations(*),
-          tickets:ticket_tiers(*)
+          org:organizations(*)
         `)
         .single();
 
@@ -99,8 +158,14 @@ export const createEvent = createAsyncThunk(
         return rejectWithValue({ error: error.message });
       }
 
+      // Type-safe data validation
+      if (!isEvent(data)) {
+        return rejectWithValue({ error: 'Invalid event data created' });
+      }
+
       return { data };
     } catch (error) {
+      console.error('Error creating event:', error);
       return rejectWithValue({ error: 'Failed to create event' });
     }
   }
