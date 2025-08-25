@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const MyTicketsScreen: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+const MyWalletScreen: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'tickets' | 'transactions'>('tickets');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -20,7 +20,7 @@ const MyTicketsScreen: React.FC = () => {
           <TouchableOpacity style={styles.backButton}>
             <Ionicons name="chevron-down" size={24} color="white" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Tickets</Text>
+          <Text style={styles.headerTitle}>My Wallet</Text>
           <View style={styles.headerSpacer} />
         </View>
         
@@ -28,19 +28,19 @@ const MyTicketsScreen: React.FC = () => {
         <View style={styles.tabsContainer}>
           <View style={styles.tabs}>
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'upcoming' && styles.activeTab]}
-              onPress={() => setActiveTab('upcoming')}
+              style={[styles.tab, activeTab === 'tickets' && styles.activeTab]}
+              onPress={() => setActiveTab('tickets')}
             >
-              <Text style={[styles.tabText, activeTab === 'upcoming' && styles.activeTabText]}>
-                Upcoming
+              <Text style={[styles.tabText, activeTab === 'tickets' && styles.activeTabText]}>
+                Tickets
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'past' && styles.activeTab]}
-              onPress={() => setActiveTab('past')}
+              style={[styles.tab, activeTab === 'transactions' && styles.activeTab]}
+              onPress={() => setActiveTab('transactions')}
             >
-              <Text style={[styles.tabText, activeTab === 'past' && styles.activeTabText]}>
-                Past
+              <Text style={[styles.tabText, activeTab === 'transactions' && styles.activeTabText]}>
+                Transactions
               </Text>
             </TouchableOpacity>
           </View>
@@ -49,26 +49,49 @@ const MyTicketsScreen: React.FC = () => {
 
       {/* Main Content */}
       <View style={styles.mainContent}>
-        <View style={styles.emptyState}>
-          <Image
-            source={{
-              uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAQCNniJkbYwYIZcV2FYd7I2PMjudyV9ts4u8COZCY_xH7lMASXs2_Og6epcbTaNweVzZ962jZbzeQvi5cYjn-DzNNLSeT3JCIxe9fzB3nHKJOABVHRzXmGdOqlEOvG22nBcL875UDeloD8Kf_pGh0CQYdyn1ROOWBQmLq1HTFMseN5o4azqtXauaW0J1TXy6L0w9AYEQF6ybEe481ThuchLw92efBRk9Cpmk7yFaFB6ltZ9jTlwu3RBW5wmgdGdwH3ksNhSwZVv7D1',
-            }}
-            style={styles.emptyStateImage}
-            resizeMode="cover"
-          />
-          
-          <View style={styles.emptyStateContent}>
-            <Text style={styles.emptyStateTitle}>No Tickets Yet</Text>
-            <Text style={styles.emptyStateDescription}>
-              Looks like your wallet is empty. Browse events to find your next experience.
-            </Text>
+        {activeTab === 'tickets' ? (
+          <View style={styles.emptyState}>
+            <Image
+              source={{
+                uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAQCNniJkbYwYIZcV2FYd7I2PMjudyV9ts4u8COZCY_xH7lMASXs2_Og6epcbTaNweVzZ962jZbzeQvi5cYjn-DzNNLSeT3JCIxe9fzB3nHKJOABVHRzXmGdOqlEOvG22nBcL875UDeloD8Kf_pGh0CQYdyn1ROOWBQmLq1HTFMseN5o4azqtXauaW0J1TXy6L0w9AYEQF6ybEe481ThuchLw92efBRk9Cpmk7yFaFB6ltZ9jTlwu3RBW5wmgdGdwH3ksNhSwZVv7D1',
+              }}
+              style={styles.emptyStateImage}
+              resizeMode="cover"
+            />
+            
+            <View style={styles.emptyStateContent}>
+              <Text style={styles.emptyStateTitle}>No Tickets Yet</Text>
+              <Text style={styles.emptyStateDescription}>
+                Your wallet is empty. Browse events to find your next experience and add tickets to your wallet.
+              </Text>
+            </View>
+            
+            <TouchableOpacity style={styles.browseButton}>
+              <Text style={styles.browseButtonText}>Browse Events</Text>
+            </TouchableOpacity>
           </View>
-          
-          <TouchableOpacity style={styles.browseButton}>
-            <Text style={styles.browseButtonText}>Browse Events</Text>
-          </TouchableOpacity>
-        </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Image
+              source={{
+                uri: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=300&fit=crop',
+              }}
+              style={styles.emptyStateImage}
+              resizeMode="cover"
+            />
+            
+            <View style={styles.emptyStateContent}>
+              <Text style={styles.emptyStateTitle}>No Transactions Yet</Text>
+              <Text style={styles.emptyStateDescription}>
+                Your transaction history will appear here once you purchase tickets or make payments.
+              </Text>
+            </View>
+            
+            <TouchableOpacity style={styles.browseButton}>
+              <Text style={styles.browseButtonText}>Browse Events</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Bottom Navigation */}
@@ -86,7 +109,7 @@ const MyTicketsScreen: React.FC = () => {
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="calendar" size={28} color="#00ff88" />
+          <Ionicons name="wallet" size={28} color="#00ff88" />
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.navItem}>
@@ -236,4 +259,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MyTicketsScreen;
+export default MyWalletScreen;
