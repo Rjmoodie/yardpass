@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
+import { ApiService } from '@/services/api';
 import { theme } from '@/constants/theme';
 
 interface Ticket {
@@ -45,54 +46,56 @@ const WalletScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'tickets' | 'payments'>('tickets');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadWalletData();
   }, []);
 
   const loadWalletData = async () => {
-    // TODO: Load from API
-    setTickets([
-      {
-        id: '1',
-        eventTitle: 'Summer Music Festival 2024',
-        eventDate: '2024-08-20',
-        ticketType: 'VIP Pass',
-        qrCode: 'QR_CODE_1',
-        status: 'active',
-        price: 299.99,
-        eventImage: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=100&h=100&fit=crop',
-      },
-      {
-        id: '2',
-        eventTitle: 'Tech Innovation Summit',
-        eventDate: '2024-09-15',
-        ticketType: 'General Admission',
-        qrCode: 'QR_CODE_2',
-        status: 'active',
-        price: 149.99,
-        eventImage: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=100&h=100&fit=crop',
-      },
-    ]);
+    if (!user?.id) {
+      setIsLoading(false);
+      return;
+    }
 
-    setTransactions([
-      {
-        id: '1',
-        type: 'purchase',
-        amount: 299.99,
-        description: 'Summer Music Festival - VIP Pass',
-        date: '2024-07-15',
-        status: 'completed',
-      },
-      {
-        id: '2',
-        type: 'purchase',
-        amount: 149.99,
-        description: 'Tech Innovation Summit - General Admission',
-        date: '2024-07-10',
-        status: 'completed',
-      },
-    ]);
+    try {
+      setIsLoading(true);
+      
+      // Load tickets
+      const ticketsResponse = await ApiService.wallet.getUserTickets();
+      if (ticketsResponse.success && ticketsResponse.data) {
+        const formattedTickets: Ticket[] = ticketsResponse.data.map((item: any) => ({
+          id: item.id,
+          eventTitle: item.ticket?.event?.title || 'Unknown Event',
+          eventDate: item.ticket?.event?.start_at || '',
+          ticketType: item.ticket?.tier_name || 'General Admission',
+          qrCode: item.qr_code || `QR_${item.id}`,
+          status: item.status || 'active',
+          price: item.ticket?.price || 0,
+          eventImage: item.ticket?.event?.cover_image_url || 'https://via.placeholder.com/100',
+        }));
+        setTickets(formattedTickets);
+      }
+
+      // Load transactions
+      const transactionsResponse = await ApiService.wallet.getTransactionHistory();
+      if (transactionsResponse.success && transactionsResponse.data) {
+        const formattedTransactions: Transaction[] = transactionsResponse.data.map((order: any) => ({
+          id: order.id,
+          type: 'purchase',
+          amount: order.total_amount || 0,
+          description: order.items?.[0]?.ticket?.event?.title || 'Ticket Purchase',
+          date: order.created_at || '',
+          status: order.status || 'completed',
+        }));
+        setTransactions(formattedTransactions);
+      }
+    } catch (error) {
+      console.error('Error loading wallet data:', error);
+      Alert.alert('Error', 'Failed to load wallet data');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleRefresh = async () => {
@@ -118,9 +121,13 @@ const WalletScreen: React.FC = () => {
       <Image source={{ uri: item.eventImage }} style={styles.eventImage} />
       <View style={styles.ticketContent}>
         <Text style={styles.eventTitle}>{item.eventTitle}</Text>
-        <Text style={styles.eventDate}>{item.eventDate}</Text>
+        <Text style={styles.eventDate}>
+          {new Date(item.eventDate).toLocaleDateString()}
+        </Text>
         <Text style={styles.ticketType}>{item.ticketType}</Text>
-        <Text style={styles.ticketPrice}>${item.price}</Text>
+        <Text style={styles.ticketPrice}>
+          {item.price > 0 ? `$${item.price}` : 'Free'}
+        </Text>
       </View>
       <View style={styles.ticketActions}>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
@@ -147,7 +154,9 @@ const WalletScreen: React.FC = () => {
       </View>
       <View style={styles.transactionContent}>
         <Text style={styles.transactionDescription}>{item.description}</Text>
-        <Text style={styles.transactionDate}>{item.date}</Text>
+        <Text style={styles.transactionDate}>
+          {new Date(item.date).toLocaleDateString()}
+        </Text>
       </View>
       <View style={styles.transactionAmount}>
         <Text style={[styles.amountText, { color: getTransactionColor(item.type) }]}>
@@ -201,6 +210,16 @@ const WalletScreen: React.FC = () => {
         return '#9E9E9E';
     }
   };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading wallet...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -295,6 +314,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
   },
   header: {
     flexDirection: 'row',

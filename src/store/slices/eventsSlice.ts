@@ -1,75 +1,97 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { supabase } from '@/services/supabase';
-import { Event, EventFilters, EventCategory, isEvent, isOrganization } from '@/types';
-import { TABLES } from '@/constants/database';
+import { createSlice, createAsyncThunk, PayloadAction } from '@react-reduxjs/toolkit';
+import { ApiService } from '@/services/api';
 
-// Enhanced error handling with proper null checks
+// Types
+export interface Event {
+  id: string;
+  title: string;
+  description: string;
+  slug: string;
+  venue: string;
+  city: string;
+  start_at: string;
+  end_at: string;
+  visibility: 'public' | 'private';
+  status: 'draft' | 'published' | 'cancelled';
+  category: string;
+  cover_image_url: string;
+  latitude?: number;
+  longitude?: number;
+  organizer_id: string;
+  organizer?: {
+    id: string;
+    display_name: string;
+    avatar_url: string;
+    handle: string;
+  };
+  attendees_count?: number;
+  posts_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventsState {
+  events: Event[];
+  currentEvent: Event | null;
+  isLoading: boolean;
+  error: string | null;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+  filters: {
+    category?: string;
+    search?: string;
+    location?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  };
+}
+
+const initialState: EventsState = {
+  events: [],
+  currentEvent: null,
+  isLoading: false,
+  error: null,
+  pagination: {
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false,
+  },
+  filters: {},
+};
+
+// Async thunks
 export const fetchEvents = createAsyncThunk(
   'events/fetchEvents',
-  async (filters: EventFilters = {}, { rejectWithValue }) => {
+  async (params: {
+    page?: number;
+    category?: string;
+    search?: string;
+    location?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  } = {}, { rejectWithValue }) => {
     try {
-      // Enhanced authentication check with proper error handling
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const response = await ApiService.events.getEvents(params);
       
-      if (authError) {
-        return rejectWithValue({ error: 'Authentication failed: ' + authError.message });
-      }
-      
-      if (!user) {
-        return rejectWithValue({ error: 'User not authenticated' });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch events');
       }
 
-      // Simplified query to avoid complexity issues
-      let query = supabase
-        .from(TABLES.EVENTS)
-        .select(`
-          *,
-          org:organizations(*)
-        `)
-        .eq('status', 'published');
-
-      // Apply filters with null checks
-      if (filters.category) {
-        query = query.eq('category', filters.category);
-      }
-      if (filters.isVerified !== undefined) {
-        query = query.eq('is_verified', filters.isVerified);
-      }
-      if (filters.dateRange && filters.dateRange.length === 2) {
-        query = query.gte('start_at', filters.dateRange[0])
-                     .lte('end_at', filters.dateRange[1]);
-      }
-      if (filters.location) {
-        query = query.ilike('city', `%${filters.location}%`);
-      }
-
-      const { data, error } = await query.order('start_at', { ascending: true });
-
-      if (error) {
-        return rejectWithValue({ error: error.message });
-      }
-
-      // Type-safe data processing
-      const events = (data || []).map(event => {
-        // Ensure event data is properly typed
-        if (!isEvent(event)) {
-          console.warn('Invalid event data received:', event);
-          return null;
-        }
-        
-        // Ensure organization data is properly typed
-        if (event.org && !isOrganization(event.org)) {
-          console.warn('Invalid organization data for event:', event.id, event.org);
-          event.org = undefined; // Remove invalid org data
-        }
-        
-        return event;
-      }).filter(Boolean) as Event[];
-
-      return { data: events };
+      return response.data;
     } catch (error) {
-      console.error('Error fetching events:', error);
-      return rejectWithValue({ error: 'Failed to fetch events' });
+      return rejectWithValue({
+        message: error instanceof Error ? error.message : 'Failed to fetch events',
+        code: 'EVENTS_FETCH_ERROR'
+      });
     }
   }
 );
@@ -78,46 +100,18 @@ export const fetchEventById = createAsyncThunk(
   'events/fetchEventById',
   async (eventId: string, { rejectWithValue }) => {
     try {
-      // Enhanced authentication check
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const response = await ApiService.events.getEventById(eventId);
       
-      if (authError) {
-        return rejectWithValue({ error: 'Authentication failed: ' + authError.message });
-      }
-      
-      if (!user) {
-        return rejectWithValue({ error: 'User not authenticated' });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch event');
       }
 
-      // Simplified query with proper error handling
-      const { data, error } = await supabase
-        .from(TABLES.EVENTS)
-        .select(`
-          *,
-          org:organizations(*)
-        `)
-        .eq('id', eventId)
-        .single();
-
-      if (error) {
-        return rejectWithValue({ error: error.message });
-      }
-
-      // Type-safe data validation
-      if (!isEvent(data)) {
-        return rejectWithValue({ error: 'Invalid event data received' });
-      }
-
-      // Validate organization data
-      if (data.org && !isOrganization(data.org)) {
-        console.warn('Invalid organization data for event:', eventId, data.org);
-        data.org = undefined;
-      }
-
-      return { data };
+      return response.data;
     } catch (error) {
-      console.error('Error fetching event by ID:', error);
-      return rejectWithValue({ error: 'Failed to fetch event' });
+      return rejectWithValue({
+        message: error instanceof Error ? error.message : 'Failed to fetch event',
+        code: 'EVENT_FETCH_ERROR'
+      });
     }
   }
 );
@@ -126,144 +120,43 @@ export const createEvent = createAsyncThunk(
   'events/createEvent',
   async (eventData: Partial<Event>, { rejectWithValue }) => {
     try {
-      // Enhanced authentication check
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const response = await ApiService.events.createEvent(eventData);
       
-      if (authError) {
-        return rejectWithValue({ error: 'Authentication failed: ' + authError.message });
-      }
-      
-      if (!user) {
-        return rejectWithValue({ error: 'User not authenticated' });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create event');
       }
 
-      // Add user ID to event data
-      const eventWithUser = {
-        ...eventData,
-        organizer_id: user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      const { data, error } = await supabase
-        .from(TABLES.EVENTS)
-        .insert([eventWithUser])
-        .select(`
-          *,
-          org:organizations(*)
-        `)
-        .single();
-
-      if (error) {
-        return rejectWithValue({ error: error.message });
-      }
-
-      // Type-safe data validation
-      if (!isEvent(data)) {
-        return rejectWithValue({ error: 'Invalid event data created' });
-      }
-
-      return { data };
+      return response.data;
     } catch (error) {
-      console.error('Error creating event:', error);
-      return rejectWithValue({ error: 'Failed to create event' });
+      return rejectWithValue({
+        message: error instanceof Error ? error.message : 'Failed to create event',
+        code: 'EVENT_CREATE_ERROR'
+      });
     }
   }
 );
 
 export const updateEvent = createAsyncThunk(
   'events/updateEvent',
-  async ({ id, updates }: { id: string; updates: Partial<Event> }, { rejectWithValue }) => {
+  async ({ eventId, updates }: { eventId: string; updates: Partial<Event> }, { rejectWithValue }) => {
     try {
-      const { data, error } = await supabase
-        .from(TABLES.EVENTS)
-        .update(updates)
-        .eq('id', id)
-        .select(`
-          *,
-          org:organizations(*),
-          tickets:ticket_tiers(*)
-        `)
-        .single();
-
-      if (error) {
-        return rejectWithValue({ error: error.message });
+      const response = await ApiService.events.updateEvent(eventId, updates);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update event');
       }
 
-      return { data };
+      return response.data;
     } catch (error) {
-      return rejectWithValue({ error: 'Failed to update event' });
+      return rejectWithValue({
+        message: error instanceof Error ? error.message : 'Failed to update event',
+        code: 'EVENT_UPDATE_ERROR'
+      });
     }
   }
 );
 
-export const deleteEvent = createAsyncThunk(
-  'events/deleteEvent',
-  async (eventId: string, { rejectWithValue }) => {
-    try {
-      const { error } = await supabase
-        .from(TABLES.EVENTS)
-        .delete()
-        .eq('id', eventId);
-
-      if (error) {
-        return rejectWithValue({ error: error.message });
-      }
-
-      return { id: eventId };
-    } catch (error) {
-      return rejectWithValue({ error: 'Failed to delete event' });
-    }
-  }
-);
-
-export const searchEvents = createAsyncThunk(
-  'events/searchEvents',
-  async (searchTerm: string, { rejectWithValue }) => {
-    try {
-      const { data, error } = await supabase
-        .from(TABLES.EVENTS)
-        .select(`
-          *,
-          org:organizations(*),
-          tickets:ticket_tiers(*)
-        `)
-        .or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,venue.ilike.%${searchTerm}%`)
-        .eq('status', 'published')
-        .order('start_at', { ascending: true });
-
-      if (error) {
-        return rejectWithValue({ error: error.message });
-      }
-
-      return { data: data || [] };
-    } catch (error) {
-      return rejectWithValue({ error: 'Failed to search events' });
-    }
-  }
-);
-
-interface EventsState {
-  events: Event[];
-  currentEvent: Event | null;
-  loading: boolean;
-  error: string | null;
-  filters: EventFilters;
-}
-
-const initialState: EventsState = {
-  events: [],
-  currentEvent: null,
-  loading: false,
-  error: null,
-  filters: {
-    category: undefined,
-    isVerified: undefined,
-    dateRange: undefined,
-    location: undefined
-  }
-};
-
+// Slice
 const eventsSlice = createSlice({
   name: 'events',
   initialState,
@@ -271,77 +164,111 @@ const eventsSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
-    setFilters: (state, action: PayloadAction<EventFilters>) => {
+    setCurrentEvent: (state, action: PayloadAction<Event | null>) => {
+      state.currentEvent = action.payload;
+    },
+    setFilters: (state, action: PayloadAction<Partial<EventsState['filters']>>) => {
       state.filters = { ...state.filters, ...action.payload };
     },
     clearFilters: (state) => {
-      state.filters = {
-        category: undefined,
-        isVerified: undefined,
-        dateRange: undefined,
-        location: undefined
+      state.filters = {};
+    },
+    resetPagination: (state) => {
+      state.pagination = {
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false,
       };
-    }
+    },
   },
   extraReducers: (builder) => {
     builder
+      // Fetch Events
       .addCase(fetchEvents.pending, (state) => {
-        state.loading = true;
+        state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchEvents.fulfilled, (state, action) => {
-        state.loading = false;
-        if (action.payload.data) {
-          state.events = action.payload.data;
-        }
+        state.isLoading = false;
+        state.events = action.payload.data;
+        state.pagination = {
+          page: action.payload.page,
+          limit: action.payload.limit,
+          total: action.payload.count,
+          totalPages: action.payload.totalPages,
+          hasNext: action.payload.hasNext,
+          hasPrev: action.payload.hasPrev,
+        };
       })
       .addCase(fetchEvents.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch events';
+        state.isLoading = false;
+        state.error = action.payload?.message || 'Failed to fetch events';
       })
+      
+      // Fetch Event by ID
       .addCase(fetchEventById.pending, (state) => {
-        state.loading = true;
+        state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchEventById.fulfilled, (state, action) => {
-        state.loading = false;
-        if (action.payload.data) {
-          state.currentEvent = action.payload.data;
-        }
+        state.isLoading = false;
+        state.currentEvent = action.payload;
       })
       .addCase(fetchEventById.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.error || 'Failed to fetch event';
+        state.isLoading = false;
+        state.error = action.payload?.message || 'Failed to fetch event';
+      })
+      
+      // Create Event
+      .addCase(createEvent.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
       })
       .addCase(createEvent.fulfilled, (state, action) => {
-        if (action.payload.data) {
-          state.events.unshift(action.payload.data);
-        }
+        state.isLoading = false;
+        state.events.unshift(action.payload);
+      })
+      .addCase(createEvent.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload?.message || 'Failed to create event';
+      })
+      
+      // Update Event
+      .addCase(updateEvent.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
       })
       .addCase(updateEvent.fulfilled, (state, action) => {
-        if (action.payload.data) {
-          const index = state.events.findIndex(event => event.id === action.payload.data!.id);
-          if (index !== -1) {
-            state.events[index] = action.payload.data!;
-          }
-          if (state.currentEvent?.id === action.payload.data!.id) {
-            state.currentEvent = action.payload.data!;
-          }
+        state.isLoading = false;
+        const updatedEvent = action.payload;
+        
+        // Update in events list
+        const eventIndex = state.events.findIndex(e => e.id === updatedEvent.id);
+        if (eventIndex !== -1) {
+          state.events[eventIndex] = updatedEvent;
+        }
+        
+        // Update current event if it's the same
+        if (state.currentEvent?.id === updatedEvent.id) {
+          state.currentEvent = updatedEvent;
         }
       })
-      .addCase(deleteEvent.fulfilled, (state, action) => {
-        state.events = state.events.filter(event => event.id !== action.payload.id);
-        if (state.currentEvent?.id === action.payload.id) {
-          state.currentEvent = null;
-        }
-      })
-      .addCase(searchEvents.fulfilled, (state, action) => {
-        if (action.payload.data) {
-          state.events = action.payload.data;
-        }
+      .addCase(updateEvent.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload?.message || 'Failed to update event';
       });
-  }
+  },
 });
 
-export const { clearError, setFilters, clearFilters } = eventsSlice.actions;
+export const {
+  clearError,
+  setCurrentEvent,
+  setFilters,
+  clearFilters,
+  resetPagination,
+} = eventsSlice.actions;
+
 export default eventsSlice.reducer;

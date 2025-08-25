@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store';
+import { ApiService } from '@/services/api';
 import { theme } from '@/constants/theme';
 import { useProtectedAction } from '@/hooks/useProtectedAction';
 
@@ -30,19 +31,39 @@ const ProfileScreen: React.FC = () => {
     followers: 0,
     following: 0,
   });
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadUserProfile();
-  }, []);
+  }, [user]);
 
   const loadUserProfile = async () => {
-    // TODO: Load user profile data from API
-    setUserStats({
-      eventsAttended: 12,
-      postsCreated: 45,
-      followers: 234,
-      following: 156,
-    });
+    if (!user?.id) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await ApiService.user.getUserProfile(user.id);
+      
+      if (response.success && response.data) {
+        setUserProfile(response.data);
+        setUserStats({
+          eventsAttended: response.data.events_attended?.[0]?.count || 0,
+          postsCreated: response.data.posts_created?.[0]?.count || 0,
+          followers: response.data.followers?.[0]?.count || 0,
+          following: response.data.following?.[0]?.count || 0,
+        });
+      } else {
+        console.error('Failed to load user profile:', response.error);
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleRefresh = async () => {
@@ -132,6 +153,16 @@ const ProfileScreen: React.FC = () => {
     },
   ];
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -153,7 +184,7 @@ const ProfileScreen: React.FC = () => {
           <View style={styles.avatarContainer}>
             <Image
               source={{
-                uri: user?.avatar_url || 'https://via.placeholder.com/100',
+                uri: userProfile?.avatar_url || user?.avatar_url || 'https://via.placeholder.com/100',
               }}
               style={styles.avatar}
             />
@@ -163,15 +194,15 @@ const ProfileScreen: React.FC = () => {
           </View>
           
           <Text style={styles.userName}>
-            {user?.display_name || user?.email || 'User'}
+            {userProfile?.display_name || user?.display_name || user?.email || 'User'}
           </Text>
           
           <Text style={styles.userHandle}>
-            @{user?.handle || 'user'}
+            @{userProfile?.handle || user?.handle || 'user'}
           </Text>
           
           <Text style={styles.userBio}>
-            {user?.bio || 'No bio yet. Tap edit to add one!'}
+            {userProfile?.bio || 'No bio yet. Tap edit to add one!'}
           </Text>
         </View>
 
@@ -234,6 +265,15 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
   },
   header: {
     flexDirection: 'row',

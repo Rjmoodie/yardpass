@@ -10,28 +10,15 @@ import {
   Image,
   RefreshControl,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store';
+import { fetchEvents, setFilters, clearFilters, resetPagination } from '@/store/slices/eventsSlice';
 import { theme } from '@/constants/theme';
-
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  time: string;
-  location: string;
-  price: number;
-  image: string;
-  category: string;
-  organizer: string;
-  attendees: number;
-  maxAttendees: number;
-}
 
 interface Category {
   id: string;
@@ -44,14 +31,15 @@ const { width } = Dimensions.get('window');
 
 const DiscoverScreen: React.FC = () => {
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+  
+  const { events, isLoading, error, pagination, filters } = useSelector((state: RootState) => state.events);
   const { user } = useSelector((state: RootState) => state.auth);
   
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  const [events, setEvents] = useState<Event[]>([]);
-  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
 
   const categories: Category[] = [
     { id: 'all', name: 'All', icon: 'grid', color: theme.colors.primary },
@@ -68,101 +56,49 @@ const DiscoverScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    filterEvents();
-  }, [events, searchQuery, selectedCategory]);
+    // Debounce search query
+    const timeoutId = setTimeout(() => {
+      if (searchQuery !== filters.search) {
+        dispatch(setFilters({ search: searchQuery }));
+        dispatch(resetPagination());
+        loadEvents();
+      }
+    }, 500);
 
-  const loadEvents = async () => {
-    // TODO: Load from API
-    const mockEvents: Event[] = [
-      {
-        id: '1',
-        title: 'Summer Music Festival 2024',
-        description: 'The biggest music festival of the summer featuring top artists from around the world.',
-        date: '2024-08-20',
-        time: '6:00 PM',
-        location: 'Central Park, New York',
-        price: 299.99,
-        image: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=300&fit=crop',
-        category: 'music',
-        organizer: 'Music Events Inc.',
-        attendees: 1250,
-        maxAttendees: 2000,
-      },
-      {
-        id: '2',
-        title: 'Tech Innovation Summit',
-        description: 'Join industry leaders for a day of innovation, networking, and cutting-edge technology.',
-        date: '2024-09-15',
-        time: '9:00 AM',
-        location: 'Convention Center, San Francisco',
-        price: 149.99,
-        image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=300&fit=crop',
-        category: 'tech',
-        organizer: 'TechCorp',
-        attendees: 450,
-        maxAttendees: 500,
-      },
-      {
-        id: '3',
-        title: 'Food & Wine Festival',
-        description: 'Taste the finest cuisines and wines from renowned chefs and wineries.',
-        date: '2024-10-05',
-        time: '5:00 PM',
-        location: 'Downtown Plaza, Los Angeles',
-        price: 89.99,
-        image: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=300&fit=crop',
-        category: 'food',
-        organizer: 'Culinary Events',
-        attendees: 320,
-        maxAttendees: 400,
-      },
-      {
-        id: '4',
-        title: 'Contemporary Art Exhibition',
-        description: 'Explore modern art from emerging and established artists in this curated exhibition.',
-        date: '2024-11-12',
-        time: '10:00 AM',
-        location: 'Modern Art Museum, Chicago',
-        price: 25.00,
-        image: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400&h=300&fit=crop',
-        category: 'art',
-        organizer: 'Art Gallery Collective',
-        attendees: 180,
-        maxAttendees: 300,
-      },
-    ];
-    
-    setEvents(mockEvents);
-  };
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
-  const filterEvents = () => {
-    let filtered = events;
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(event =>
-        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.organizer.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Error', error);
     }
+  }, [error]);
 
-    // Filter by category
-    if (selectedCategory && selectedCategory !== 'all') {
-      filtered = filtered.filter(event => event.category === selectedCategory);
-    }
+  const loadEvents = async (page = 1) => {
+    const params = {
+      page,
+      category: selectedCategory === 'all' ? undefined : selectedCategory,
+      search: searchQuery,
+      ...filters,
+    };
 
-    setFilteredEvents(filtered);
+    await dispatch(fetchEvents(params) as any);
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadEvents();
+    dispatch(resetPagination());
+    await loadEvents(1);
     setRefreshing(false);
   };
 
-  const handleEventPress = (event: Event) => {
+  const handleLoadMore = () => {
+    if (pagination.hasNext && !isLoading) {
+      loadEvents(pagination.page + 1);
+    }
+  };
+
+  const handleEventPress = (event: any) => {
     navigation.navigate('EventDetails' as never, { eventId: event.id } as never);
   };
 
@@ -175,13 +111,21 @@ const DiscoverScreen: React.FC = () => {
     setViewMode('list');
   };
 
+  const handleCategorySelect = (categoryId: string) => {
+    const newCategory = categoryId === 'all' ? null : categoryId;
+    setSelectedCategory(newCategory);
+    dispatch(setFilters({ category: newCategory }));
+    dispatch(resetPagination());
+    loadEvents(1);
+  };
+
   const renderCategory = ({ item }: { item: Category }) => (
     <TouchableOpacity
       style={[
         styles.categoryItem,
         selectedCategory === item.id && styles.selectedCategory,
       ]}
-      onPress={() => setSelectedCategory(item.id === 'all' ? null : item.id)}
+      onPress={() => handleCategorySelect(item.id)}
     >
       <View style={[styles.categoryIcon, { backgroundColor: item.color }]}>
         <Ionicons name={item.icon as any} size={20} color="white" />
@@ -195,13 +139,18 @@ const DiscoverScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
-  const renderEvent = ({ item }: { item: Event }) => (
+  const renderEvent = ({ item }: { item: any }) => (
     <TouchableOpacity style={styles.eventCard} onPress={() => handleEventPress(item)}>
-      <Image source={{ uri: item.image }} style={styles.eventImage} />
+      <Image 
+        source={{ uri: item.cover_image_url || 'https://via.placeholder.com/400x300' }} 
+        style={styles.eventImage} 
+      />
       <View style={styles.eventContent}>
         <View style={styles.eventHeader}>
           <Text style={styles.eventTitle}>{item.title}</Text>
-          <Text style={styles.eventPrice}>${item.price}</Text>
+          <Text style={styles.eventPrice}>
+            {item.ticket_tiers?.[0]?.price ? `$${item.ticket_tiers[0].price}` : 'Free'}
+          </Text>
         </View>
         
         <Text style={styles.eventDescription} numberOfLines={2}>
@@ -211,31 +160,52 @@ const DiscoverScreen: React.FC = () => {
         <View style={styles.eventDetails}>
           <View style={styles.eventDetail}>
             <Ionicons name="calendar" size={16} color={theme.colors.textSecondary} />
-            <Text style={styles.eventDetailText}>{item.date}</Text>
+            <Text style={styles.eventDetailText}>
+              {new Date(item.start_at).toLocaleDateString()}
+            </Text>
           </View>
           
           <View style={styles.eventDetail}>
             <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
-            <Text style={styles.eventDetailText}>{item.time}</Text>
+            <Text style={styles.eventDetailText}>
+              {new Date(item.start_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
           </View>
           
           <View style={styles.eventDetail}>
             <Ionicons name="location" size={16} color={theme.colors.textSecondary} />
-            <Text style={styles.eventDetailText}>{item.location}</Text>
+            <Text style={styles.eventDetailText}>{item.venue || item.city}</Text>
           </View>
         </View>
         
         <View style={styles.eventFooter}>
-          <Text style={styles.organizerText}>by {item.organizer}</Text>
+          <Text style={styles.organizerText}>
+            by {item.organizer?.display_name || 'Unknown Organizer'}
+          </Text>
           <View style={styles.attendeesContainer}>
             <Ionicons name="people" size={16} color={theme.colors.textSecondary} />
             <Text style={styles.attendeesText}>
-              {item.attendees}/{item.maxAttendees}
+              {item.attendees_count || 0} attending
             </Text>
           </View>
         </View>
       </View>
     </TouchableOpacity>
+  );
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyState}>
+      <Ionicons name="search" size={64} color={theme.colors.textSecondary} />
+      <Text style={styles.emptyTitle}>
+        {searchQuery || selectedCategory ? 'No events found' : 'No events available'}
+      </Text>
+      <Text style={styles.emptySubtitle}>
+        {searchQuery || selectedCategory 
+          ? 'Try adjusting your search or filters'
+          : 'Check back later for new events'
+        }
+      </Text>
+    </View>
   );
 
   return (
@@ -292,7 +262,7 @@ const DiscoverScreen: React.FC = () => {
 
       {/* Events List */}
       <FlatList
-        data={filteredEvents}
+        data={events}
         renderItem={renderEvent}
         keyExtractor={(item) => item.id}
         style={styles.eventsList}
@@ -301,19 +271,15 @@ const DiscoverScreen: React.FC = () => {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="search" size={64} color={theme.colors.textSecondary} />
-            <Text style={styles.emptyTitle}>
-              {searchQuery ? 'No events found' : 'No events available'}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {searchQuery 
-                ? 'Try adjusting your search or filters'
-                : 'Check back later for new events'
-              }
-            </Text>
-          </View>
+        ListEmptyComponent={renderEmptyState}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.1}
+        ListFooterComponent={
+          isLoading && pagination.page > 1 ? (
+            <View style={styles.loadingFooter}>
+              <Text style={styles.loadingText}>Loading more events...</Text>
+            </View>
+          ) : null
         }
       />
     </SafeAreaView>
@@ -507,6 +473,14 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: 40,
+  },
+  loadingFooter: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
   },
 });
 
