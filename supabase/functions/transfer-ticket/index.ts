@@ -6,20 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface TransferTicketRequest {
-  ticket_id: string
-  recipient_email: string
-  message?: string
-}
-
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // Create Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -30,7 +22,18 @@ serve(async (req) => {
       }
     )
 
-    // Get the authenticated user
+    const body = await req.json()
+    const { ticket_id, recipient_email, message } = body
+
+    // Validate required fields
+    if (!ticket_id || !recipient_email) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: ticket_id, recipient_email' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Get current user
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
     if (userError || !user) {
       return new Response(
@@ -39,86 +42,54 @@ serve(async (req) => {
       )
     }
 
-    // Parse request body
-    const body: TransferTicketRequest = await req.json()
-
-    // Validate required fields
-    if (!body.ticket_id || !body.recipient_email) {
-      return new Response(
-        JSON.stringify({ error: 'Ticket ID and recipient email are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(body.recipient_email)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid recipient email format' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Get the ticket
-    const { data: ticket, error: ticketError } = await supabaseClient
-      .from('tickets')
+    // Get ticket with event details using proper join
+    const { data: ticketData, error: ticketError } = await supabaseClient
+      .from('ticket_wallet')
       .select(`
-        *,
-        events (
-          id,
-          title,
-          slug,
-          start_at,
-          venue
-        ),
-        ticket_tiers (
+        id,
+        status,
+        tickets!inner (
           id,
           name,
-          description
+          price,
+          events!inner (
+            id,
+            title,
+            start_at,
+            end_at,
+            venue,
+            city
+          )
         )
       `)
-      .eq('id', body.ticket_id)
+      .eq('id', ticket_id)
       .eq('user_id', user.id)
       .single()
 
-    if (ticketError || !ticket) {
+    if (ticketError || !ticketData) {
       return new Response(
-        JSON.stringify({ error: 'Ticket not found or you do not own this ticket' }),
+        JSON.stringify({ error: 'Ticket not found or access denied' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Check ticket status
-    if (ticket.status !== 'active') {
+    // Check if ticket is active
+    if (ticketData.status !== 'active') {
       return new Response(
-        JSON.stringify({ 
-          error: 'Ticket cannot be transferred',
-          details: `Ticket status: ${ticket.status}`
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Check if ticket has been scanned
-    if (ticket.scanned_at) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Ticket has already been used and cannot be transferred',
-          details: `Scanned at: ${ticket.scanned_at}`
-        }),
+        JSON.stringify({ error: 'Ticket is not active and cannot be transferred' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     // Check if event has already started
     const now = new Date()
-    const eventStart = new Date(ticket.events.start_at)
+    const eventStart = new Date(ticketData.tickets.events.start_at)
     
     if (now >= eventStart) {
       return new Response(
         JSON.stringify({ 
           error: 'Event has already started. Tickets cannot be transferred.',
-          details: `Event started at: ${ticket.events.start_at}`
+          details: `Event started at: ${ticketData.tickets.events.start_at}`
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -126,9 +97,9 @@ serve(async (req) => {
 
     // Find recipient user
     const { data: recipient, error: recipientError } = await supabaseClient
-      .from('user_profiles')
+      .from('profiles')
       .select('id, display_name, email')
-      .eq('email', body.recipient_email)
+      .eq('email', recipient_email)
       .single()
 
     if (recipientError || !recipient) {
@@ -150,7 +121,7 @@ serve(async (req) => {
     const { data: existingTransfer, error: transferCheckError } = await supabaseClient
       .from('ticket_transfers')
       .select('*')
-      .eq('ticket_id', body.ticket_id)
+      .eq('ticket_id', ticket_id)
       .eq('status', 'pending')
       .single()
 
@@ -163,11 +134,11 @@ serve(async (req) => {
 
     // Create transfer record
     const transferData = {
-      ticket_id: body.ticket_id,
+      ticket_id: ticket_id,
       from_user_id: user.id,
       to_user_id: recipient.id,
       status: 'pending',
-      message: body.message,
+      message: message || '',
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
       created_at: new Date().toISOString()
     }
@@ -193,13 +164,13 @@ serve(async (req) => {
         user_id: recipient.id,
         type: 'ticket_transfer',
         title: 'Ticket Transfer Request',
-        message: `${user.email} wants to transfer a ticket to you for ${ticket.events.title}`,
+        message: `${user.email} wants to transfer a ticket to you for ${ticketData.tickets.events.title}`,
         data: {
           transfer_id: transfer.id,
-          ticket_id: ticket.id,
-          event_title: ticket.events.title,
+          ticket_id: ticket_id,
+          event_title: ticketData.tickets.events.title,
           sender_email: user.email,
-          message: body.message
+          message: message
         },
         status: 'unread',
         created_at: new Date().toISOString()
@@ -210,42 +181,32 @@ serve(async (req) => {
       .from('user_behavior_logs')
       .insert({
         user_id: user.id,
-        event_id: ticket.event_id,
-        behavior_type: 'ticket_transfer_request',
-        behavior_data: {
-          ticket_id: ticket.id,
-          recipient_email: body.recipient_email,
-          transfer_id: transfer.id
-        }
+        action_type: 'ticket_transfer_requested',
+        metadata: {
+          ticket_id: ticket_id,
+          recipient_email: recipient_email,
+          transfer_id: transfer.id,
+          event_title: ticketData.tickets.events.title
+        },
+        created_at: new Date().toISOString()
       })
 
     return new Response(
       JSON.stringify({
         success: true,
-        transfer: {
-          id: transfer.id,
-          status: transfer.status,
-          expires_at: transfer.expires_at
-        },
-        ticket: {
-          id: ticket.id,
-          ticket_number: ticket.ticket_number,
-          event_title: ticket.events.title,
-          tier_name: ticket.ticket_tiers.name
-        },
-        recipient: {
-          email: recipient.email,
-          display_name: recipient.display_name
-        },
-        message: 'Transfer request sent successfully. Recipient will be notified.'
+        transfer_id: transfer.id,
+        message: 'Transfer request created successfully. Recipient will be notified.'
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
     console.error('Unexpected error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({
+        error: 'Internal server error',
+        details: error.message
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
