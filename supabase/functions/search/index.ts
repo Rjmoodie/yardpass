@@ -229,7 +229,7 @@ async function searchEvents(supabase, query, lat, lng, radiusKm, offset, limit) 
 
 async function searchOrganizations(supabase, query, offset, limit) {
   const { data: organizations, error } = await supabase
-    .from('organizations')
+    .from('orgs')
     .select('*')
     .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
     .range(offset, offset + limit - 1);

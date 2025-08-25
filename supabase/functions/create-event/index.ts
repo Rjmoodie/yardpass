@@ -138,7 +138,7 @@ serve(async (req) => {
     // Validate owner context exists
     if (finalOwnerContextType === 'organization') {
       const { data: org, error: orgError } = await supabase
-        .from('organizations')
+        .from('orgs')
         .select('id')
         .eq('id', finalOwnerContextId)
         .single();
