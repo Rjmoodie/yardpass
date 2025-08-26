@@ -1,18 +1,48 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
-};
+}
+
+interface SearchRequest {
+  q: string
+  types?: string[]
+  category?: string
+  location?: string
+  radius_km?: number
+  date_from?: string
+  date_to?: string
+  limit?: number
+  offset?: number
+}
+
+interface SearchResponse {
+  query: string
+  results: {
+    events: any[]
+    organizations: any[]
+    users: any[]
+    posts: any[]
+  }
+  meta: {
+    total: number
+    search_time_ms: number
+    has_more: boolean
+  }
+  suggestions?: string[]
+  trending?: any[]
+}
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    // Create Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -21,327 +51,172 @@ serve(async (req) => {
           headers: { Authorization: req.headers.get('Authorization')! },
         },
       }
-    );
+    )
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
+    // Get the authenticated user (optional for search)
+    const { data: { user } } = await supabaseClient.auth.getUser()
+
+    // Parse request
+    const { q, types = ['events', 'organizations', 'users', 'posts'], category, location, radius_km = 50, date_from, date_to, limit = 20, offset = 0 }: SearchRequest = await req.json()
+
+    if (!q || q.trim().length < 2) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        JSON.stringify({ error: 'Search query must be at least 2 characters long' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    const url = new URL(req.url);
-    const query = url.searchParams.get('q') || '';
-    const types = url.searchParams.get('types')?.split(',') || ['events', 'users', 'organizations'];
-    const category = url.searchParams.get('category');
-    const location = url.searchParams.get('location');
-    const radius = parseInt(url.searchParams.get('radius') || '50');
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const limit = parseInt(url.searchParams.get('limit') || '20');
-    const offset = (page - 1) * limit;
+    const startTime = performance.now()
+    const searchQuery = q.trim()
 
-    if (!query.trim()) {
-      return new Response(JSON.stringify({
-        error: 'Search query is required'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    // Get search suggestions
+    const { data: suggestions } = await supabaseClient.rpc('get_search_suggestions', {
+      partial_query: searchQuery,
+      suggestion_limit: 5
+    })
+
+    // Get trending searches
+    const { data: trending } = await supabaseClient.rpc('get_trending_searches', {
+      hours_back: 24,
+      limit_count: 5
+    })
+
+    // Perform enhanced search
+    const { data: searchResults, error: searchError } = await supabaseClient.rpc('enhanced_search', {
+      search_query: searchQuery,
+      search_types: types,
+      category_filter: category,
+      location_filter: location,
+      radius_km: radius_km,
+      date_from: date_from ? new Date(date_from).toISOString() : null,
+      date_to: date_to ? new Date(date_to).toISOString() : null,
+      limit_count: limit,
+      offset_count: offset
+    })
+
+    if (searchError) {
+      console.error('Search error:', searchError)
+      return new Response(
+        JSON.stringify({ error: 'Search failed', details: searchError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
+    // Process and organize results
     const results = {
       events: [],
-      users: [],
       organizations: [],
-      categories: [],
-      tags: [],
-      total_results: 0,
-      search_time_ms: 0
-    };
+      users: [],
+      posts: []
+    }
 
-    const startTime = performance.now();
+    searchResults?.forEach((result: any) => {
+      switch (result.result_type) {
+        case 'event':
+          results.events.push({
+            ...result.result_data,
+            relevance_score: result.relevance_score,
+            distance_km: result.distance_km
+          })
+          break
+        case 'organization':
+          results.organizations.push({
+            ...result.result_data,
+            relevance_score: result.relevance_score
+          })
+          break
+        case 'user':
+          results.users.push({
+            ...result.result_data,
+            relevance_score: result.relevance_score
+          })
+          break
+        case 'post':
+          results.posts.push({
+            ...result.result_data,
+            relevance_score: result.relevance_score
+          })
+          break
+      }
+    })
 
-    // Search events with full-text search
-    if (types.includes('events')) {
-      const { data: events, error: eventsError } = await searchEvents(
-        supabaseClient, 
-        query, 
-        category, 
-        location, 
-        radius, 
-        offset, 
-        limit
-      );
-      if (!eventsError && events) {
-        results.events = events;
+    // Sort results by relevance score
+    results.events.sort((a, b) => b.relevance_score - a.relevance_score)
+    results.organizations.sort((a, b) => b.relevance_score - a.relevance_score)
+    results.users.sort((a, b) => b.relevance_score - a.relevance_score)
+    results.posts.sort((a, b) => b.relevance_score - a.relevance_score)
+
+    const searchTime = performance.now() - startTime
+    const totalResults = results.events.length + results.organizations.length + results.users.length + results.posts.length
+
+    // Log search analytics
+    if (user) {
+      try {
+        await supabaseClient.rpc('log_search_analytics', {
+          p_user_id: user.id,
+          p_query: searchQuery,
+          p_search_types: types,
+          p_results_count: totalResults,
+          p_search_time_ms: Math.round(searchTime)
+        })
+      } catch (analyticsError) {
+        console.error('Analytics logging error:', analyticsError)
+        // Don't fail the search for analytics errors
       }
     }
 
-    // Search users with full-text search
-    if (types.includes('users')) {
-      const { data: users, error: usersError } = await searchUsers(
-        supabaseClient, 
-        query, 
-        offset, 
-        limit
-      );
-      if (!usersError && users) {
-        results.users = users;
+    // Check cache for this query
+    const queryHash = btoa(searchQuery + JSON.stringify({ types, category, location, radius_km }))
+    const { data: cachedResult } = await supabaseClient
+      .from('search_cache')
+      .select('results')
+      .eq('query_hash', queryHash)
+      .gt('expires_at', new Date().toISOString())
+      .single()
+
+    if (!cachedResult) {
+      // Cache the results for future requests
+      try {
+        await supabaseClient
+          .from('search_cache')
+          .upsert({
+            query_hash: queryHash,
+            search_query: searchQuery,
+            search_types: types,
+            results: results,
+            expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString() // 1 hour
+          })
+      } catch (cacheError) {
+        console.error('Cache error:', cacheError)
+        // Don't fail the search for cache errors
       }
     }
 
-    // Search organizations with full-text search
-    if (types.includes('organizations')) {
-      const { data: organizations, error: orgsError } = await searchOrganizations(
-        supabaseClient, 
-        query, 
-        offset, 
-        limit
-      );
-      if (!orgsError && organizations) {
-        results.organizations = organizations;
-      }
-    }
-
-    // Search categories
-    if (types.includes('categories')) {
-      const { data: categories, error: categoriesError } = await searchCategories(
-        supabaseClient, 
-        query, 
-        offset, 
-        limit
-      );
-      if (!categoriesError && categories) {
-        results.categories = categories;
-      }
-    }
-
-    // Search tags
-    if (types.includes('tags')) {
-      const { data: tags, error: tagsError } = await searchTags(
-        supabaseClient, 
-        query, 
-        offset, 
-        limit
-      );
-      if (!tagsError && tags) {
-        results.tags = tags;
-      }
-    }
-
-    const endTime = performance.now();
-    results.search_time_ms = Math.round(endTime - startTime);
-    results.total_results = results.events.length + results.users.length + 
-                           results.organizations.length + results.categories.length + 
-                           results.tags.length;
-
-    // Log search for analytics
-    await logSearch(supabaseClient, user.id, query, types, results.total_results, results.search_time_ms);
-
-    return new Response(JSON.stringify({
-      query,
+    const response: SearchResponse = {
+      query: searchQuery,
       results,
-      pagination: {
-        page,
-        limit,
-        offset,
-        has_more: results.total_results >= limit
-      }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
-  } catch (error) {
-    console.error('Enhanced search error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-});
-
-async function searchEvents(supabase: any, query: string, category: string | null, location: string | null, radius: number, offset: number, limit: number) {
-  let searchQuery = supabase
-    .from('events')
-    .select(`
-      id,
-      title,
-      description,
-      slug,
-      venue,
-      city,
-      start_at,
-      end_at,
-      cover_image_url,
-      category,
-      tags,
-      visibility,
-      status,
-      event_categories (
-        id,
-        name,
-        slug,
-        icon_url,
-        color_hex
-      )
-    `)
-    .eq('status', 'published')
-    .eq('visibility', 'public');
-
-  // Full-text search
-  if (query.trim()) {
-    searchQuery = searchQuery.textSearch('title', query, {
-      type: 'websearch',
-      config: 'english'
-    });
-  }
-
-  // Category filter
-  if (category) {
-    searchQuery = searchQuery.eq('category_id', category);
-  }
-
-  // Location filter
-  if (location) {
-    // Parse location (assuming format: "lat,lng")
-    const [lat, lng] = location.split(',').map(Number);
-    if (!isNaN(lat) && !isNaN(lng)) {
-      searchQuery = searchQuery.rpc('nearby_events', {
-        lat: lat,
-        lng: lng,
-        radius_meters: radius * 1000
-      });
+      meta: {
+        total: totalResults,
+        search_time_ms: Math.round(searchTime),
+        has_more: totalResults >= limit
+      },
+      suggestions: suggestions?.map((s: any) => s.suggestion) || [],
+      trending: trending || []
     }
-  }
 
-  return await searchQuery
-    .order('start_at', { ascending: true })
-    .range(offset, offset + limit - 1);
-}
+    return new Response(
+      JSON.stringify(response),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
 
-async function searchUsers(supabase: any, query: string, offset: number, limit: number) {
-  let searchQuery = supabase
-    .from('users')
-    .select(`
-      id,
-      name,
-      handle,
-      bio,
-      avatar_url,
-      is_verified,
-      role,
-      created_at
-    `)
-    .eq('is_active', true);
-
-  // Full-text search
-  if (query.trim()) {
-    searchQuery = searchQuery.textSearch('name', query, {
-      type: 'websearch',
-      config: 'english'
-    });
-  }
-
-  return await searchQuery
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-}
-
-async function searchOrganizations(supabase: any, query: string, offset: number, limit: number) {
-  let searchQuery = supabase
-    .from('orgs')
-    .select(`
-      id,
-      name,
-      slug,
-      description,
-      logo_url,
-      website_url,
-      is_verified,
-      created_at
-    `)
-    .eq('is_active', true);
-
-  // Full-text search
-  if (query.trim()) {
-    searchQuery = searchQuery.textSearch('name', query, {
-      type: 'websearch',
-      config: 'english'
-    });
-  }
-
-  return await searchQuery
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-}
-
-async function searchCategories(supabase: any, query: string, offset: number, limit: number) {
-  let searchQuery = supabase
-    .from('event_categories')
-    .select(`
-      id,
-      name,
-      slug,
-      description,
-      icon_url,
-      color_hex,
-      sort_order
-    `)
-    .eq('is_active', true);
-
-  // Full-text search
-  if (query.trim()) {
-    searchQuery = searchQuery.textSearch('name', query, {
-      type: 'websearch',
-      config: 'english'
-    });
-  }
-
-  return await searchQuery
-    .order('sort_order', { ascending: true })
-    .range(offset, offset + limit - 1);
-}
-
-async function searchTags(supabase: any, query: string, offset: number, limit: number) {
-  let searchQuery = supabase
-    .from('event_tags')
-    .select(`
-      id,
-      name,
-      slug,
-      description,
-      color_hex,
-      usage_count
-    `);
-
-  // Full-text search
-  if (query.trim()) {
-    searchQuery = searchQuery.textSearch('name', query, {
-      type: 'websearch',
-      config: 'english'
-    });
-  }
-
-  return await searchQuery
-    .order('usage_count', { ascending: false })
-    .range(offset, offset + limit - 1);
-}
-
-async function logSearch(supabase: any, userId: string, query: string, types: string[], resultCount: number, searchTime: number) {
-  try {
-    await supabase
-      .from('search_history')
-      .insert({
-        user_id: userId,
-        query: query.toLowerCase(),
-        search_type: types.join(','),
-        results_count: resultCount,
-        search_duration_ms: searchTime,
-        timestamp: new Date().toISOString()
-      });
   } catch (error) {
-    console.error('Failed to log search:', error);
-    // Don't fail the search if logging fails
+    console.error('Enhanced search error:', error)
+    return new Response(
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: error.message 
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
-}
+})

@@ -1,201 +1,162 @@
-# YardPass
+# YardPass - Event Management Platform
 
-A comprehensive event management and social platform built with React Native, Expo, and Supabase.
-
-## 🚀 Features
-
-- **Event Management**: Create, discover, and manage events
-- **Social Feed**: Video and image sharing with engagement features
-- **Ticket System**: Purchase and manage event tickets with QR codes
-- **Real-time Updates**: Live notifications and updates
-- **Video Streaming**: Integrated video upload and playback with Mux
-- **Authentication**: Secure user authentication and authorization
-- **Cross-platform**: Works on iOS, Android, and Web
-
-## 🛠 Tech Stack
-
-- **Frontend**: React Native with Expo SDK 49
-- **Backend**: Supabase (PostgreSQL, Auth, Storage, Real-time)
-- **Video Processing**: Mux for video upload and streaming
-- **State Management**: Redux Toolkit with RTK Query
-- **Navigation**: React Navigation 6
-- **UI Components**: Custom components with React Native
-- **TypeScript**: Full type safety across the application
-
-## 📱 Screenshots
-
-[Add screenshots here]
-
-## 🏗 Project Structure
+## 📁 Project Structure
 
 ```
-YardPass/
-├── apps/
-│   └── mobile/                 # React Native mobile app
-│       ├── src/
-│       │   ├── components/     # Reusable UI components
-│       │   ├── screens/        # Screen components
-│       │   ├── navigation/     # Navigation configuration
-│       │   ├── store/          # Redux store and slices
-│       │   ├── services/       # API services and utilities
-│       │   ├── types/          # TypeScript type definitions
-│       │   └── constants/      # App constants and theme
-│       └── package.json
-├── packages/
-│   ├── api/                    # Backend API services
-│   ├── types/                  # Shared TypeScript types
-│   └── ui/                     # Shared UI components
-├── package.json
-└── README.md
+yardpass/
+├── 📁 apps/                    # Application directories
+│   └── 📁 mobile/             # React Native mobile app
+├── 📁 src/                     # Source code
+│   ├── 📁 components/         # Reusable UI components
+│   ├── 📁 constants/          # App constants and configuration
+│   ├── 📁 hooks/              # Custom React hooks
+│   ├── 📁 navigation/         # Navigation configuration
+│   ├── 📁 screens/            # Screen components
+│   ├── 📁 services/           # API services and utilities
+│   ├── 📁 store/              # Redux store and slices
+│   ├── 📁 types/              # TypeScript type definitions
+│   └── 📁 utils/              # Utility functions
+├── 📁 supabase/               # Supabase configuration
+│   ├── 📁 functions/          # Edge functions
+│   └── schema.sql             # Database schema
+├── 📁 docs/                   # Documentation and guides
+│   ├── 📁 edits/              # Edit files and notes
+│   ├── 📁 guides/             # Implementation guides
+│   ├── 📁 sql/                # SQL scripts and fixes
+│   └── 📁 tests/              # Test files and scripts
+├── 📁 scripts/                # Build and deployment scripts
+└── README.md                  # This file
 ```
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
-
-- Node.js 18+ 
-- npm or yarn
+- Node.js 18+
+- React Native CLI
+- Supabase CLI
 - Expo CLI
-- iOS Simulator (for iOS development)
-- Android Studio (for Android development)
 
 ### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/yardpass.git
-   cd yardpass
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Fill in your environment variables:
-   ```
-   EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   MUX_TOKEN_ID=your_mux_token_id
-   MUX_TOKEN_SECRET=your_mux_token_secret
-   ```
-
-4. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-
-5. **Run on your preferred platform**
-   ```bash
-   # iOS
-   npm run ios
-   
-   # Android
-   npm run android
-   
-   # Web
-   npm run web
-   ```
-
-## 📋 Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run ios` - Run on iOS simulator
-- `npm run android` - Run on Android emulator
-- `npm run web` - Run on web browser
-- `npm run build` - Build for production
-- `npm run type-check` - Run TypeScript type checking
-- `npm run lint` - Run ESLint
-- `npm run test` - Run tests
-
-## 🔧 Configuration
-
-### Supabase Setup
-
-1. Create a new Supabase project
-2. Set up the database schema (see `supabase/migrations/`)
-3. Configure authentication providers
-4. Set up storage buckets for media uploads
-5. Configure real-time subscriptions
-
-### Mux Setup
-
-1. Create a Mux account
-2. Generate API tokens
-3. Configure webhook endpoints
-4. Set up video processing pipelines
-
-## 🧪 Testing
-
 ```bash
-# Run all tests
-npm test
+# Install dependencies
+npm install
 
-# Run tests in watch mode
-npm run test:watch
+# Start development server
+npm start
 
-# Run tests with coverage
-npm run test:coverage
+# Run on iOS
+npm run ios
+
+# Run on Android
+npm run android
 ```
 
-## 📦 Deployment
+## 📚 Documentation
 
-### Mobile App Store Deployment
+### Guides (`docs/guides/`)
+- Implementation guides and tutorials
+- Migration guides
+- Security configuration
+- Performance optimization
 
-1. **Build for production**
-   ```bash
-   npm run build:ios
-   npm run build:android
-   ```
+### SQL Scripts (`docs/sql/`)
+- Database fixes and updates
+- Schema modifications
+- Security patches
+- Performance optimizations
 
-2. **Submit to app stores**
-   - iOS: Use App Store Connect
-   - Android: Use Google Play Console
+### Edit Files (`docs/edits/`)
+- Development notes
+- Bug fixes documentation
+- Feature implementation notes
 
-### Web Deployment
+### Test Files (`docs/tests/`)
+- Test scripts and utilities
+- Performance testing
+- Debugging tools
 
-1. **Build for web**
-   ```bash
-   npm run build:web
-   ```
+## 🔧 Development
 
-2. **Deploy to your preferred platform**
-   - Vercel: `vercel --prod`
-   - Netlify: `netlify deploy --prod`
-   - AWS S3: Upload build files
+### Database Changes
+All database changes should be made through SQL scripts in `docs/sql/` and applied via Supabase Dashboard.
+
+### Edge Functions
+Edge functions are located in `supabase/functions/` and can be deployed using:
+```bash
+supabase functions deploy <function-name>
+```
+
+### Code Organization
+- **Components**: Reusable UI components in `src/components/`
+- **Screens**: Main app screens in `src/screens/`
+- **Services**: API and business logic in `src/services/`
+- **Types**: TypeScript definitions in `src/types/`
+
+## 🛠️ Available Scripts
+
+```bash
+# Development
+npm start          # Start Expo development server
+npm run ios        # Run on iOS simulator
+npm run android    # Run on Android emulator
+npm run web        # Run on web browser
+
+# Testing
+npm test           # Run tests
+npm run test:watch # Run tests in watch mode
+
+# Building
+npm run build      # Build for production
+npm run eject      # Eject from Expo managed workflow
+
+# Linting
+npm run lint       # Run ESLint
+npm run lint:fix   # Fix ESLint errors
+```
+
+## 📱 Features
+
+- **Event Management**: Create, edit, and manage events
+- **User Authentication**: Secure login and registration
+- **Real-time Updates**: Live event updates and notifications
+- **Search & Discovery**: Advanced search with relevance scoring
+- **Social Features**: Posts, comments, and reactions
+- **Location Services**: Map integration and location-based search
+- **Payment Processing**: Ticket sales and payment handling
+
+## 🔒 Security
+
+- Row Level Security (RLS) policies
+- Secure authentication with Supabase Auth
+- Input validation and sanitization
+- Secure file uploads with size limits
+- API rate limiting and protection
+
+## 📊 Performance
+
+- Optimized database queries with indexes
+- Full-text search with relevance scoring
+- Image optimization and caching
+- Lazy loading and code splitting
+- Performance monitoring and analytics
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ## 🆘 Support
 
-If you encounter any issues or have questions:
+For support and questions:
+- Check the documentation in `docs/`
+- Review the guides in `docs/guides/`
+- Check SQL fixes in `docs/sql/`
+- Review implementation notes in `docs/edits/`
 
-1. Check the [Issues](https://github.com/yourusername/yardpass/issues) page
-2. Create a new issue with detailed information
-3. Join our [Discord](https://discord.gg/yardpass) community
-
-## 🙏 Acknowledgments
-
-- [Expo](https://expo.dev/) for the amazing development platform
-- [Supabase](https://supabase.com/) for the backend infrastructure
-- [Mux](https://mux.com/) for video processing capabilities
-- [React Native](https://reactnative.dev/) community for the excellent framework
-
----
-
-Made with ❤️ by the YardPass team
