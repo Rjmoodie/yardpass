@@ -84,11 +84,12 @@ export const ORDER_STATUS = {
 export const NOTIFICATION_TYPES = {
   EVENT_REMINDER: 'event_reminder',
   TICKET_PURCHASED: 'ticket_purchased',
-  EVENT_UPDATED: 'event_updated',
+  EVENT_UPDATE: 'event_update',
   EVENT_CANCELLED: 'event_cancelled',
-  NEW_COMMENT: 'new_comment',
-  NEW_LIKE: 'new_like',
-  NEW_SHARE: 'new_share',
-  ORGANIZER_VERIFIED: 'organizer_verified',
-  PAYOUT_PROCESSED: 'payout_processed'
+  TICKET_TRANSFER: 'ticket_transfer',
+  PAYMENT_SUCCESS: 'payment_success',
+  FRIEND_REQUEST: 'friend_request',
+  SYSTEM: 'system',
+  PROMO: 'promo',
+  GENERAL: 'general'
 } as const;

@@ -401,16 +401,24 @@ export class ApiGateway {
     return this.call('user-connections', { method: 'GET', params });
   }
   
+  /**
+   * @deprecated Use getCommunicationSettings() instead
+   */
   async getNotifications(params: {
     page?: number;
     limit?: number;
     status?: string;
   }): Promise<EdgeFunctionResponse<any>> {
-    return this.call('notifications', { method: 'GET', params });
+    console.warn('getNotifications is deprecated. Use getCommunicationSettings() instead.');
+    return this.getCommunicationSettings(true, params.status);
   }
   
+  /**
+   * @deprecated Use communications endpoint directly
+   */
   async markNotificationRead(notificationId: string): Promise<EdgeFunctionResponse<any>> {
-    return this.call('notifications', { method: 'PUT', body: { notification_id: notificationId, status: 'read' } });
+    console.warn('markNotificationRead is deprecated. Use communications endpoint directly.');
+    return this.call('communications', { method: 'PUT', body: { communication_id: notificationId, status: 'read' } });
   }
   
   // ===== ENHANCED ANALYTICS & INSIGHTS =====
@@ -599,6 +607,37 @@ export class ApiGateway {
     return this.call('realtime-sync', { method: 'POST', body: params });
   }
   
+  // ===== UNIFIED COMMUNICATIONS =====
+  async sendCommunication(params: {
+    user_ids?: string[];
+    event_id?: string;
+    organization_id?: string;
+    title: string;
+    body: string;
+    data?: any;
+    communication_type: 'push' | 'email' | 'sms' | 'in_app' | 'all';
+    notification_type: 'event_reminder' | 'event_update' | 'ticket_transfer' | 'payment_success' | 'friend_request' | 'system' | 'promo' | 'general';
+    scheduled_at?: string;
+    email_template?: string;
+    sms_template?: string;
+    push_template?: string;
+    priority?: 'low' | 'normal' | 'high' | 'urgent';
+    related_entity_type?: string;
+    related_entity_id?: string;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('communications', { method: 'POST', body: params });
+  }
+
+  async getCommunicationSettings(includeHistory?: boolean, type?: string): Promise<EdgeFunctionResponse<any>> {
+    const params: any = { include_history: includeHistory ? 'true' : 'false' };
+    if (type) params.type = type;
+    return this.call('communications', { method: 'GET', params });
+  }
+
+  // ===== LEGACY PUSH NOTIFICATION METHODS (DEPRECATED) =====
+  /**
+   * @deprecated Use sendCommunication() instead
+   */
   async sendPushNotification(notificationData: {
     user_ids?: string[];
     event_id?: string;
@@ -607,7 +646,13 @@ export class ApiGateway {
     message: string;
     data?: any;
   }): Promise<EdgeFunctionResponse<any>> {
-    return this.call('push-notifications', { method: 'POST', body: notificationData });
+    console.warn('sendPushNotification is deprecated. Use sendCommunication() instead.');
+    return this.sendCommunication({
+      ...notificationData,
+      body: notificationData.message,
+      communication_type: 'push',
+      notification_type: 'general'
+    });
   }
   
   // ===== CONTENT OPTIMIZATION =====

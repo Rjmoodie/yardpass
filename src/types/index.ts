@@ -1001,11 +1001,11 @@ export enum NotificationType {
   // Ticket Related
   TICKET_PURCHASED = 'ticket_purchased',
   TICKET_REFUNDED = 'ticket_refunded',
-  TICKET_TRANSFERRED = 'ticket_transferred',
+  TICKET_TRANSFERRED = 'ticket_transfer',
   TICKET_UPGRADED = 'ticket_upgraded',
   
   // Social
-  NEW_FOLLOWER = 'new_follower',
+  NEW_FOLLOWER = 'friend_request',
   POST_LIKED = 'post_liked',
   POST_COMMENTED = 'post_commented',
   POST_SHARED = 'post_shared',
@@ -1021,9 +1021,16 @@ export enum NotificationType {
   SALES_UPDATE = 'sales_update',
   
   // System
-  SYSTEM_UPDATE = 'system_update',
+  SYSTEM_UPDATE = 'system',
   SECURITY_ALERT = 'security_alert',
-  MAINTENANCE = 'maintenance'
+  MAINTENANCE = 'maintenance',
+  
+  // Payment
+  PAYMENT_SUCCESS = 'payment_success',
+  
+  // Promotional
+  PROMO = 'promo',
+  GENERAL = 'general'
 }
 
 export interface NotificationData {

@@ -267,23 +267,26 @@ async function notifyEventParticipants(supabaseClient: any, eventId: string, act
     'schedule': 'Event has been scheduled'
   };
 
-  // Create notifications for all participants
-  const notifications = userIds.map(userId => ({
+  // Create communications for all participants using the new unified system
+  const communications = userIds.map(userId => ({
     user_id: userId,
-    type: 'event_update',
     title: 'Event Update',
-    message: `${actionMessages[action]}. ${reason ? `Reason: ${reason}` : ''}`,
+    body: `${actionMessages[action]}. ${reason ? `Reason: ${reason}` : ''}`,
+    communication_type: 'in_app',
+    notification_type: 'event_update',
     data: {
       event_id: eventId,
       action: action,
       reason: reason
     },
-    status: 'unread'
+    status: 'pending',
+    related_entity_type: 'event',
+    related_entity_id: eventId
   }));
 
   await supabaseClient
-    .from('notifications')
-    .insert(notifications);
+    .from('communications')
+    .insert(communications);
 }
 
 async function checkOrgAccess(supabaseClient: any, userId: string, orgId: string): Promise<boolean> {
