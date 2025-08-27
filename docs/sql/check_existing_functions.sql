@@ -1,141 +1,62 @@
--- Check Existing Functions in YardPass Database
--- Run this to see what functions currently exist before making changes
+-- Check Existing Search Functions in Detail
+-- This will show us the structure of your existing functions
 
--- ========================================
--- 1. CHECK ALL FUNCTIONS IN PUBLIC SCHEMA
--- ========================================
-
+-- Check the structure of existing search functions
 SELECT 
-    'ALL PUBLIC FUNCTIONS' as section,
-    proname as function_name,
-    pg_get_function_arguments(oid) as arguments,
-    pg_get_function_result(oid) as return_type,
-    CASE 
-        WHEN prosecdef THEN 'SECURITY DEFINER'
-        ELSE 'SECURITY INVOKER'
-    END as security_type,
-    CASE 
-        WHEN prosrc LIKE '%search_path%' THEN 'Has search_path'
-        ELSE 'No search_path'
-    END as search_path_status
+    'FUNCTION_DETAILS' as check_type,
+    p.proname as function_name,
+    pg_get_function_arguments(p.oid) as arguments,
+    pg_get_function_result(p.oid) as return_type,
+    p.prosrc as source_code
 FROM pg_proc p
-JOIN pg_namespace n ON p.pronamespace = n.oid
-WHERE n.nspname = 'public'
-ORDER BY proname;
-
--- ========================================
--- 2. CHECK FUNCTIONS WITH SECURITY DEFINER
--- ========================================
-
-SELECT 
-    'SECURITY DEFINER FUNCTIONS' as section,
-    proname as function_name,
-    pg_get_function_arguments(oid) as arguments,
-    pg_get_function_result(oid) as return_type,
-    CASE 
-        WHEN prosrc LIKE '%search_path%' THEN 'Has search_path'
-        ELSE 'MISSING search_path'
-    END as search_path_status
-FROM pg_proc p
-JOIN pg_namespace n ON p.pronamespace = n.oid
-WHERE n.nspname = 'public'
-AND prosecdef = true
-ORDER BY proname;
-
--- ========================================
--- 3. CHECK FUNCTIONS WITHOUT SEARCH_PATH
--- ========================================
-
-SELECT 
-    'FUNCTIONS WITHOUT SEARCH_PATH' as section,
-    proname as function_name,
-    pg_get_function_arguments(oid) as arguments,
-    pg_get_function_result(oid) as return_type,
-    CASE 
-        WHEN prosecdef THEN 'SECURITY DEFINER'
-        ELSE 'SECURITY INVOKER'
-    END as security_type
-FROM pg_proc p
-JOIN pg_namespace n ON p.pronamespace = n.oid
-WHERE n.nspname = 'public'
-AND prosecdef = true
-AND prosrc NOT LIKE '%search_path%'
-ORDER BY proname;
-
--- ========================================
--- 4. CHECK SPECIFIC FUNCTIONS WE WANT TO FIX
--- ========================================
-
-SELECT 
-    'TARGET FUNCTIONS TO FIX' as section,
-    proname as function_name,
-    pg_get_function_arguments(oid) as arguments,
-    pg_get_function_result(oid) as return_type,
-    CASE 
-        WHEN prosecdef THEN 'SECURITY DEFINER'
-        ELSE 'SECURITY INVOKER'
-    END as security_type,
-    CASE 
-        WHEN prosrc LIKE '%search_path%' THEN 'Has search_path'
-        ELSE 'MISSING search_path'
-    END as search_path_status
-FROM pg_proc p
-JOIN pg_namespace n ON p.pronamespace = n.oid
-WHERE n.nspname = 'public'
-AND prosecdef = true
-AND proname IN (
-    'generate_ticket_qr_code',
-    'validate_ticket_qr_code',
-    'process_ticket_scan',
-    'create_ticket_transfer',
-    'accept_ticket_transfer',
-    'update_order_total',
-    'cleanup_expired_transfers',
-    'trigger_cleanup_cart_holds',
-    'is_org_role',
-    'has_verified_payout_account',
-    'update_badge_cache',
-    'update_verification_status',
-    'update_promo_usage',
-    'update_tier_availability',
-    'update_user_interest',
-    'log_event_view',
-    'remove_post_reaction',
-    'update_post_engagement',
-    'create_cart_hold',
-    'release_cart_hold',
-    'cleanup_expired_cart_holds',
-    'validate_promo_code',
-    'create_notification'
+WHERE p.proname IN (
+    'cache_search_results',
+    'get_cached_search_results', 
+    'search_public_events'
 )
-ORDER BY proname;
+AND p.pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public');
 
--- ========================================
--- 5. CHECK VIEWS
--- ========================================
-
+-- Check if any of our target functions already exist
 SELECT 
-    'EXISTING VIEWS' as section,
-    viewname as view_name,
-    schemaname as schema_name,
+    'TARGET_FUNCTIONS' as check_type,
+    p.proname as function_name,
     CASE 
-        WHEN viewowner = 'postgres' THEN 'SECURITY DEFINER'
-        ELSE 'Regular View'
-    END as view_type
-FROM pg_views
-WHERE schemaname = 'public'
-ORDER BY viewname;
+        WHEN p.proname IS NOT NULL THEN 'EXISTS'
+        ELSE 'MISSING'
+    END as status
+FROM (
+    SELECT unnest(ARRAY[
+        'enhanced_search_v2',
+        'get_search_suggestions',
+        'get_trending_searches', 
+        'get_search_facets',
+        'calculate_search_relevance_v2',
+        'log_search_analytics_v2',
+        'get_related_searches'
+    ]) as proname
+) target_functions
+LEFT JOIN pg_proc p ON p.proname = target_functions.proname 
+    AND p.pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public');
 
--- ========================================
--- 6. SUMMARY
--- ========================================
-
+-- Check what tables are available for search
 SELECT 
-    'SUMMARY' as section,
-    COUNT(*) as total_functions,
-    COUNT(CASE WHEN prosecdef THEN 1 END) as security_definer_functions,
-    COUNT(CASE WHEN prosecdef AND prosrc NOT LIKE '%search_path%' THEN 1 END) as functions_needing_fix
-FROM pg_proc p
-JOIN pg_namespace n ON p.pronamespace = n.oid
-WHERE n.nspname = 'public';
+    'SEARCH_TABLES' as check_type,
+    table_name,
+    column_name,
+    data_type,
+    is_nullable
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+AND table_name IN ('events', 'search_cache', 'search_logs')
+ORDER BY table_name, ordinal_position;
+
+-- Check existing indexes on events table
+SELECT 
+    'EVENTS_INDEXES' as check_type,
+    indexname,
+    indexdef
+FROM pg_indexes 
+WHERE schemaname = 'public' 
+AND tablename = 'events'
+ORDER BY indexname;
 

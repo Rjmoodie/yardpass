@@ -80,6 +80,15 @@ const SearchScreen: React.FC = () => {
   const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
   const [searchAnalytics, setSearchAnalytics] = useState<SearchAnalytics | null>(null);
 
+  // ✅ NEW: Enhanced search state variables
+  const [searchFacets, setSearchFacets] = useState<any>({});
+  const [relatedSearches, setRelatedSearches] = useState<string[]>([]);
+  const [trendingSearches, setTrendingSearches] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<string | null>(null);
+  const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
+  const [includePastEvents, setIncludePastEvents] = useState(false);
+
   // ✅ OPTIMIZED: Refs for performance
   const searchInputRef = useRef<TextInput>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
@@ -107,7 +116,7 @@ const SearchScreen: React.FC = () => {
     setRecentSearches(memoizedRecentSearches);
   }, [memoizedTrendingTopics, memoizedRecentSearches]);
 
-  // ✅ OPTIMIZED: Debounced search function
+  // ✅ OPTIMIZED: Debounced search function with new API
   const debouncedSearch = useMemo(
     () => debounce(async (query: string) => {
       if (query.length < 2) {
@@ -120,30 +129,44 @@ const SearchScreen: React.FC = () => {
       const startTime = performance.now();
 
       try {
-              const response = await apiGateway.search({
-        q: query,
-        types: activeTab === 'all' ? undefined : [activeTab],
-        limit: 20
-      });
-      
-      if (response.error) {
-        console.error('Search error:', response.error.message);
-        return;
-      }
-      
-      const searchResponse = response.data;
+        // ✅ NEW: Use enhanced search with all features
+        const response = await apiGateway.search({
+          q: query,
+          types: activeTab === 'all' ? ['events', 'organizations', 'users', 'posts'] : [activeTab],
+          limit: 20,
+          sort_by: 'relevance',
+          // Add optional filters
+          category: selectedCategory,
+          location: userLocation,
+          radius_km: 50,
+          verified_only: showVerifiedOnly,
+          include_past_events: includePastEvents
+        });
+        
+        if (response.error) {
+          console.error('Search error:', response.error.message);
+          return;
+        }
+        
+        const searchResponse = response.data;
 
-        if (searchResponse.data) {
-          const results = transformSearchResults(searchResponse.data);
-          setSearchResults(results);
+        if (searchResponse) {
+          // ✅ NEW: Enhanced results with suggestions, trending, facets
+          const transformedResults = transformEnhancedResults(searchResponse.results.events || []);
+          setSearchResults(transformedResults);
+          setSuggestions(searchResponse.suggestions || []);
+          setTrendingSearches(searchResponse.trending || []);
+          setSearchFacets(searchResponse.meta.facets || {});
+          setRelatedSearches(searchResponse.related_searches || []);
           setShowResults(true);
 
-          // ✅ TRACK: Search analytics
+          // ✅ TRACK: Enhanced search analytics
           const searchTime = performance.now() - startTime;
           setSearchAnalytics({
             query,
-            resultsCount: results.length,
-            searchTime: Math.round(searchTime)
+            resultsCount: transformedResults.length,
+            searchTime: Math.round(searchTime),
+            filtersApplied: searchResponse.filters_applied
           });
         }
       } catch (error) {
@@ -153,10 +176,10 @@ const SearchScreen: React.FC = () => {
         setIsSearching(false);
       }
     }, 300), // 300ms debounce
-    [activeTab]
+    [activeTab, selectedCategory, userLocation, showVerifiedOnly, includePastEvents]
   );
 
-  // ✅ OPTIMIZED: Debounced suggestions function
+  // ✅ ENHANCED: Debounced suggestions function
   const debouncedGetSuggestions = useMemo(
     () => debounce(async (query: string) => {
       if (query.length < 1) {
@@ -166,9 +189,9 @@ const SearchScreen: React.FC = () => {
       }
 
       try {
-        const response = await apiGateway.search({
+        // ✅ NEW: Use dedicated suggestions endpoint
+        const response = await apiGateway.getSearchSuggestions({
           q: query,
-          types: ['suggestions'],
           limit: 5
         });
         
@@ -278,87 +301,30 @@ const SearchScreen: React.FC = () => {
     }
   }, [searchAnalytics, searchQuery, navigation]);
 
-  // ✅ OPTIMIZED: Transform search results
-  const transformSearchResults = useCallback((searchData: any): SearchResult[] => {
+  // ✅ ENHANCED: Transform enhanced search results
+  const transformEnhancedResults = useCallback((searchData: any): SearchResult[] => {
     const results: SearchResult[] = [];
 
-    // Transform events
-    if (searchData.events) {
-      searchData.events.forEach((event: any) => {
-        results.push({
-          id: event.id,
-          type: 'event',
-          title: event.title,
-          subtitle: `${new Date(event.start_at).toLocaleDateString()} • ${event.venue || event.city}`,
-          image: event.cover_image_url,
-          relevanceScore: event.relevanceScore,
-          metadata: {
-            organizer: event.org?.name,
-            isVerified: event.org?.is_verified,
-            category: event.category
-          }
-        });
-      });
+    // Transform enhanced search results (already in correct format)
+    if (searchData && Array.isArray(searchData)) {
+      return searchData.map((item: any) => ({
+        id: item.id,
+        type: item.result_type || 'event',
+        title: item.result_data?.title || item.result_data?.name || 'Unknown',
+        subtitle: item.result_data?.description || '',
+        image: item.result_data?.cover_image_url || item.result_data?.logo_url,
+        relevanceScore: item.relevance_score || 0,
+        metadata: {
+          organizer: item.organizer_info?.name,
+          isVerified: item.organizer_info?.is_verified,
+          category: item.result_data?.category,
+          searchHighlights: item.search_highlights,
+          quickActions: item.quick_actions
+        }
+      }));
     }
 
-    // Transform organizations
-    if (searchData.organizations) {
-      searchData.organizations.forEach((org: any) => {
-        results.push({
-          id: org.id,
-          type: 'organization',
-          title: org.name,
-          subtitle: org.description,
-          image: org.logo_url,
-          isVerified: org.is_verified,
-          relevanceScore: org.relevanceScore,
-          metadata: {
-            website: org.website_url,
-            slug: org.slug
-          }
-        });
-      });
-    }
-
-    // Transform users
-    if (searchData.users) {
-      searchData.users.forEach((user: any) => {
-        results.push({
-          id: user.id,
-          type: 'user',
-          title: user.name,
-          subtitle: `@${user.handle}`,
-          avatar: user.avatar_url,
-          isVerified: user.is_verified,
-          relevanceScore: user.relevanceScore,
-          metadata: {
-            bio: user.bio,
-            handle: user.handle
-          }
-        });
-      });
-    }
-
-    // Transform posts
-    if (searchData.posts) {
-      searchData.posts.forEach((post: any) => {
-        results.push({
-          id: post.id,
-          type: 'post',
-          title: post.title || 'Post',
-          subtitle: `by ${post.author?.name} • ${new Date(post.created_at).toLocaleDateString()}`,
-          image: post.media_asset?.thumbnail_url,
-          relevanceScore: post.relevanceScore,
-          metadata: {
-            author: post.author,
-            event: post.event
-          }
-        });
-      });
-    }
-
-    // Sort by relevance score
-    return results.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+    return results;
   }, []);
 
   // ✅ OPTIMIZED: Memoized render functions

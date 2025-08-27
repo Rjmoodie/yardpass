@@ -532,10 +532,85 @@ export interface ApiEndpoints {
     response: PlaybackToken;
   };
   
-  // Search
-  'GET /search': {
-    request: SearchQuery;
-    response: SearchResult;
+  // Enhanced Search
+  'POST /enhanced-search': {
+    request: {
+      q: string;
+      types?: string[];
+      category?: string;
+      location?: string;
+      radius_km?: number;
+      date_from?: string;
+      date_to?: string;
+      limit?: number;
+      offset?: number;
+      sort_by?: 'relevance' | 'date' | 'popularity' | 'distance';
+      price_range?: { min: number; max: number };
+      tags?: string[];
+      organizer_id?: string;
+      verified_only?: boolean;
+      include_past_events?: boolean;
+    };
+    response: {
+      query: string;
+      results: {
+        events: any[];
+        organizations: any[];
+        users: any[];
+        posts: any[];
+      };
+      meta: {
+        total: number;
+        search_time_ms: number;
+        has_more: boolean;
+        facets: {
+          categories: { name: string; count: number }[];
+          locations: { name: string; count: number }[];
+          price_ranges: { range: string; count: number }[];
+          dates: { range: string; count: number }[];
+        };
+      };
+      suggestions?: string[];
+      trending?: any[];
+      related_searches?: string[];
+      filters_applied?: any;
+    };
+  };
+
+  // Discover Feed
+  'POST /discover-feed': {
+    request: {
+      user_id?: string;
+      location?: string;
+      radius_km?: number;
+      categories?: string[];
+      limit?: number;
+      offset?: number;
+      include_trending?: boolean;
+      include_recommendations?: boolean;
+      include_nearby?: boolean;
+      include_following?: boolean;
+      price_range?: { min: number; max: number };
+      date_range?: { from: string; to: string };
+    };
+    response: {
+      events: any[];
+      trending_events: any[];
+      recommended_events: any[];
+      nearby_events: any[];
+      following_events: any[];
+      meta: {
+        total: number;
+        has_more: boolean;
+        user_location?: { lat: number; lng: number };
+        categories_available: string[];
+      };
+      insights: {
+        popular_categories: { name: string; count: number }[];
+        trending_topics: string[];
+        price_distribution: { range: string; count: number }[];
+      };
+    };
   };
   
   // User Management

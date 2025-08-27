@@ -182,28 +182,71 @@ export class ApiGateway {
   
   // ===== SEARCH & DISCOVERY =====
   
+  // ✅ ENHANCED: Unified Search with Full-Text Capabilities
   async search(params: {
     q: string;
     types?: string[];
-    lat?: number;
-    lng?: number;
+    category?: string;
+    location?: string;
     radius_km?: number;
-    page?: number;
+    date_from?: string;
+    date_to?: string;
+    limit?: number;
+    offset?: number;
+    sort_by?: 'relevance' | 'date' | 'popularity' | 'distance';
+    price_range?: { min: number; max: number };
+    tags?: string[];
+    organizer_id?: string;
+    verified_only?: boolean;
+    include_past_events?: boolean;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('enhanced-search', { 
+      method: 'POST', 
+      body: params 
+    });
+  }
+
+  // ✅ ENHANCED: Search Suggestions (separate endpoint for better UX)
+  async getSearchSuggestions(params: {
+    q: string;
     limit?: number;
   }): Promise<EdgeFunctionResponse<any>> {
-    return this.call('search', { method: 'GET', params });
+    return this.call('enhanced-search', { 
+      method: 'POST', 
+      body: { ...params, types: ['suggestions'] }
+    });
+  }
+
+  // ✅ ENHANCED: Trending Searches
+  async getTrendingSearches(params: {
+    hours_back?: number;
+    limit?: number;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('enhanced-search', { 
+      method: 'POST', 
+      body: { ...params, types: ['trending'] }
+    });
   }
   
+  // ✅ ENHANCED: Discover Feed with Personalized Recommendations
   async getDiscoverFeed(params: {
-    lat?: number;
-    lng?: number;
+    user_id?: string;
+    location?: string;
     radius_km?: number;
     categories?: string[];
-    date_range?: string;
-    page?: number;
     limit?: number;
+    offset?: number;
+    include_trending?: boolean;
+    include_recommendations?: boolean;
+    include_nearby?: boolean;
+    include_following?: boolean;
+    price_range?: { min: number; max: number };
+    date_range?: { from: string; to: string };
   }): Promise<EdgeFunctionResponse<any>> {
-    return this.call('discover-feed', { method: 'GET', params });
+    return this.call('discover-feed', { 
+      method: 'POST', 
+      body: params 
+    });
   }
   
   async getSmartRecommendations(params: {
@@ -214,28 +257,7 @@ export class ApiGateway {
     return this.call('smart-recommendations', { method: 'GET', params });
   }
   
-  // Enhanced Search with Full-Text Capabilities
-  async enhancedSearch(params: {
-    q: string;
-    types?: string[];
-    category?: string;
-    location?: string;
-    radius?: number;
-    page?: number;
-    limit?: number;
-  }): Promise<EdgeFunctionResponse<any>> {
-    const searchParams = new URLSearchParams({
-      q: params.q,
-      types: params.types?.join(',') || 'events,users,organizations',
-      ...(params.category && { category: params.category }),
-      ...(params.location && { location: params.location }),
-      ...(params.radius && { radius: params.radius.toString() }),
-      ...(params.page && { page: params.page.toString() }),
-      ...(params.limit && { limit: params.limit.toString() })
-    });
 
-    return this.call(`enhanced-search?${searchParams}`, { method: 'GET' });
-  }
 
   // Waitlist Management
   async joinWaitlist(params: {
