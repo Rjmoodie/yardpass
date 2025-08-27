@@ -482,7 +482,7 @@ export class WalletApi extends BaseApi {
   }
 }
 
-// Analytics API
+// Analytics API - DEPRECATED: Use apiGateway.getEnhancedAnalytics() instead
 export class AnalyticsApi extends BaseApi {
   async trackUserBehavior(behaviorData: any): Promise<ApiResponse<any>> {
     try {
@@ -507,16 +507,12 @@ export class AnalyticsApi extends BaseApi {
     }
   }
 
+  // DEPRECATED: Use apiGateway.getEnhancedAnalytics() instead
   async getEventAnalytics(eventId: string): Promise<ApiResponse<any>> {
+    console.warn('AnalyticsApi.getEventAnalytics is deprecated. Use apiGateway.getEnhancedAnalytics() instead.');
     try {
-      const { data, error } = await supabase
-        .from('event_analytics')
-        .select('*')
-        .eq('event_id', eventId)
-        .single();
-
-      if (error) throw error;
-      return this.handleSuccess(data);
+      // This method is now handled by Edge Functions
+      throw new Error('Use apiGateway.getEnhancedAnalytics() instead');
     } catch (error) {
       return this.handleError(error);
     }

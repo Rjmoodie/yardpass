@@ -180,14 +180,14 @@ export class EventsService {
   }
 
   /**
-   * @deprecated Use apiGateway.getEventAnalytics() instead
+   * @deprecated Use apiGateway.getEnhancedAnalytics() instead
    */
   static async getEventAnalytics(eventId: string): Promise<ApiResponse<any>> {
-    console.warn('EventsService.getEventAnalytics is deprecated. Use apiGateway.getEventAnalytics() instead.');
+    console.warn('EventsService.getEventAnalytics is deprecated. Use apiGateway.getEnhancedAnalytics() instead.');
     
     try {
       // This method is now handled by Edge Functions
-      throw new Error('Use apiGateway.getEventAnalytics() instead');
+      throw new Error('Use apiGateway.getEnhancedAnalytics() instead');
     } catch (error: any) {
       const apiError: ApiError = {
         code: 'GET_EVENT_ANALYTICS_FAILED',

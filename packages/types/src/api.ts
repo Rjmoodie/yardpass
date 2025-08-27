@@ -438,13 +438,127 @@ export interface PlaybackToken {
   playback_url: string;
 }
 
-// Analytics & Metrics
+// Enhanced Analytics & Metrics
 export interface AnalyticsEvent {
   event_name: string;
   properties: Record<string, any>;
   user_id?: string;
   session_id?: string;
   timestamp: string;
+}
+
+export interface EnhancedAnalyticsData {
+  type: 'event' | 'enterprise' | 'performance' | 'comprehensive' | 'revenue' | 'attendance' | 'engagement' | 'user_behavior' | 'content_performance' | 'real_time';
+  period: {
+    start: string;
+    end: string;
+  };
+  summary: Record<string, any>;
+  daily_breakdown?: Array<{
+    date: string;
+    value: number;
+    [key: string]: any;
+  }>;
+  generated_at: string;
+}
+
+export interface AnalyticsInsights {
+  top_performing_days?: Array<{
+    date: string;
+    views: number;
+    posts: number;
+    tickets_sold: number;
+    performance_score: number;
+  }>;
+  engagement_opportunities?: Array<{
+    insight: string;
+    priority: 'high' | 'medium' | 'low';
+    action: string;
+  }>;
+  best_performing_events?: Array<{
+    event_id: string;
+    title: string;
+    revenue: number;
+    attendees: number;
+    engagement_rate: number;
+  }>;
+  revenue_growth?: {
+    growth_rate: number;
+    trend: 'increasing' | 'decreasing' | 'stable';
+  };
+  operational_efficiency?: {
+    conversion_rate: number;
+    average_order_value: number;
+    customer_retention: number;
+  };
+  performance_trends?: {
+    trend_direction: 'improving' | 'declining' | 'stable';
+    improvement_rate: number;
+  };
+  improvement_areas?: Array<{
+    metric_type: string;
+    current_average: number;
+    recommendation: string;
+  }>;
+  optimization_opportunities?: Array<{
+    opportunity: string;
+    impact: 'high' | 'medium' | 'low';
+    effort: 'high' | 'medium' | 'low';
+  }>;
+}
+
+export interface AnalyticsPredictions {
+  projected_revenue?: number;
+  projected_attendance?: number;
+  projected_engagement?: number;
+  confidence_level: 'high' | 'medium' | 'low';
+  prediction_horizon: string;
+  projected_growth?: {
+    revenue_growth_rate: number;
+    event_growth_rate: number;
+    customer_growth_rate: number;
+  };
+  market_trends?: {
+    trending_categories: string[];
+    seasonal_patterns: {
+      peak_season: string;
+      low_season: string;
+    };
+  };
+  resource_needs?: {
+    staffing_requirements: string;
+    infrastructure_needs: string;
+    marketing_budget: string;
+  };
+}
+
+export interface AnalyticsComparisons {
+  vs_previous_period?: {
+    revenue_change: number;
+    attendance_change: number;
+    engagement_change: number;
+  };
+  vs_similar_events?: {
+    revenue_percentile: number;
+    attendance_percentile: number;
+    engagement_percentile: number;
+  };
+  vs_industry_benchmarks?: {
+    revenue_benchmark: number;
+    attendance_benchmark: number;
+    engagement_benchmark: number;
+  };
+}
+
+export interface AnalyticsMeta {
+  generated_at: string;
+  source: 'live' | 'cache';
+  processing_time_ms: number;
+  data_points: number;
+  period: {
+    start: string;
+    end: string;
+  };
 }
 
 // API Endpoints
@@ -574,6 +688,41 @@ export interface ApiEndpoints {
       trending?: any[];
       related_searches?: string[];
       filters_applied?: any;
+    };
+  };
+
+  // Enhanced Analytics
+  'POST /enhanced-analytics': {
+    request: {
+      analytics_type: 'event' | 'enterprise' | 'performance' | 'comprehensive' | 'revenue' | 'attendance' | 'engagement' | 'user_behavior' | 'content_performance' | 'real_time';
+      event_id?: string;
+      organization_id?: string;
+      user_id?: string;
+      start_date?: string;
+      end_date?: string;
+      period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+      metrics?: string[];
+      filters?: Record<string, any>;
+      force_refresh?: boolean;
+      include_insights?: boolean;
+      include_predictions?: boolean;
+      include_comparisons?: boolean;
+    };
+    response: {
+      data: any;
+      insights?: any;
+      predictions?: any;
+      comparisons?: any;
+      meta: {
+        generated_at: string;
+        source: 'live' | 'cache';
+        processing_time_ms: number;
+        data_points: number;
+        period: {
+          start: string;
+          end: string;
+        };
+      };
     };
   };
 

@@ -413,29 +413,158 @@ export class ApiGateway {
     return this.call('notifications', { method: 'PUT', body: { notification_id: notificationId, status: 'read' } });
   }
   
-  // ===== ANALYTICS & INSIGHTS =====
+  // ===== ENHANCED ANALYTICS & INSIGHTS =====
   
-  async getEventAnalytics(eventId: string): Promise<EdgeFunctionResponse<any>> {
-    return this.call('event-analytics', { method: 'GET', params: { event_id: eventId } });
-  }
-  
-  async getEventInsights(eventId: string): Promise<EdgeFunctionResponse<any>> {
-    return this.call('event-insights', { method: 'GET', params: { event_id: eventId } });
-  }
-  
-  async getFinancialReports(params: {
-    type: string;
+  async getEnhancedAnalytics(params: {
+    analytics_type: 'event' | 'enterprise' | 'performance' | 'comprehensive' | 'revenue' | 'attendance' | 'engagement' | 'user_behavior' | 'content_performance' | 'real_time';
     event_id?: string;
-    organization_id?: string;
+    owner_context_id?: string;
+    user_id?: string;
     start_date?: string;
     end_date?: string;
-    period?: string;
+    period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+    metrics?: string[];
+    filters?: Record<string, any>;
+    force_refresh?: boolean;
+    include_insights?: boolean;
+    include_predictions?: boolean;
+    include_comparisons?: boolean;
   }): Promise<EdgeFunctionResponse<any>> {
-    return this.call('financial-reports', { method: 'GET', params });
+    return this.call('enhanced-analytics', { method: 'POST', body: params });
   }
   
-  async getEnterpriseAnalytics(organizationId: string): Promise<EdgeFunctionResponse<any>> {
-    return this.call('enterprise-analytics', { method: 'GET', params: { organization_id: organizationId } });
+  // ===== LEGACY METHODS FOR BACKWARD COMPATIBILITY =====
+  // These methods now use the unified enhanced-analytics endpoint
+  
+  async getEventAnalytics(params: {
+    event_id: string;
+    start_date?: string;
+    end_date?: string;
+    period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+    include_insights?: boolean;
+    include_predictions?: boolean;
+    include_comparisons?: boolean;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.getEnhancedAnalytics({ 
+      analytics_type: 'event',
+      ...params
+    });
+  }
+  
+  async getEnterpriseAnalytics(params: {
+    owner_context_id: string;
+    start_date?: string;
+    end_date?: string;
+    period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+    include_insights?: boolean;
+    include_predictions?: boolean;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.getEnhancedAnalytics({ 
+      analytics_type: 'enterprise',
+      ...params
+    });
+  }
+  
+  async getPerformanceAnalytics(params: {
+    event_id?: string;
+    owner_context_id?: string;
+    start_date?: string;
+    end_date?: string;
+    period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+    include_insights?: boolean;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.getEnhancedAnalytics({ 
+      analytics_type: 'performance',
+      ...params
+    });
+  }
+  
+  async getRevenueAnalytics(params: {
+    event_id?: string;
+    owner_context_id?: string;
+    start_date?: string;
+    end_date?: string;
+    period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.getEnhancedAnalytics({ 
+      analytics_type: 'revenue',
+      ...params
+    });
+  }
+  
+  async getAttendanceAnalytics(params: {
+    event_id: string;
+    start_date?: string;
+    end_date?: string;
+    period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.getEnhancedAnalytics({ 
+      analytics_type: 'attendance',
+      ...params
+    });
+  }
+  
+  async getEngagementAnalytics(params: {
+    event_id: string;
+    start_date?: string;
+    end_date?: string;
+    period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.getEnhancedAnalytics({ 
+      analytics_type: 'engagement',
+      ...params
+    });
+  }
+  
+  async getUserBehaviorAnalytics(params: {
+    event_id?: string;
+    owner_context_id?: string;
+    start_date?: string;
+    end_date?: string;
+    period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.getEnhancedAnalytics({ 
+      analytics_type: 'user_behavior',
+      ...params
+    });
+  }
+  
+  async getContentPerformanceAnalytics(params: {
+    event_id: string;
+    start_date?: string;
+    end_date?: string;
+    period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.getEnhancedAnalytics({ 
+      analytics_type: 'content_performance',
+      ...params
+    });
+  }
+  
+  async getRealTimeAnalytics(params: {
+    event_id: string;
+    filters?: Record<string, any>;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.getEnhancedAnalytics({ 
+      analytics_type: 'real_time',
+      ...params
+    });
+  }
+  
+  async getComprehensiveAnalytics(params: {
+    event_id?: string;
+    owner_context_id?: string;
+    start_date?: string;
+    end_date?: string;
+    period?: 'day' | 'week' | 'month' | 'quarter' | 'year';
+    include_insights?: boolean;
+    include_predictions?: boolean;
+    include_comparisons?: boolean;
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.getEnhancedAnalytics({ 
+      analytics_type: 'comprehensive',
+      ...params
+    });
   }
   
   // ===== EVENT MANAGEMENT =====

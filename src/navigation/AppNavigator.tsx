@@ -35,7 +35,7 @@ import TicketDetailsScreen from '@/screens/tickets/TicketDetailsScreen';
 // Organizer Screens
 import OrganizerDashboardScreen from '@/screens/organizer/OrganizerDashboardScreen';
 import MediaSchedulerScreen from '@/screens/organizer/MediaSchedulerScreen';
-import AnalyticsScreen from '@/screens/organizer/AnalyticsScreen';
+import AnalyticsScreen from '@/screens/organizer/EnhancedAnalyticsScreen';
 
 // Other Screens
 import ChatScreen from '@/screens/chat/ChatScreen';
