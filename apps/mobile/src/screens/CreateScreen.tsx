@@ -18,6 +18,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { theme } from '../constants/theme';
 import VideoRecorder from '../components/video/VideoRecorder';
 import VideoEditor from '../components/video/VideoEditor';
+import { MediaUpload } from '../components/MediaUpload';
+import { apiGateway } from '@yardpass/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -30,6 +32,8 @@ const CreateScreen: React.FC = () => {
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [showVideoEditor, setShowVideoEditor] = useState(false);
   const [recordedVideoUri, setRecordedVideoUri] = useState<string | null>(null);
+  const [showMediaUpload, setShowMediaUpload] = useState(false);
+  const [uploadedMediaAssets, setUploadedMediaAssets] = useState<any[]>([]);
 
   const createOptions = [
     {
@@ -98,7 +102,20 @@ const CreateScreen: React.FC = () => {
   };
 
   const handleUploadMedia = () => {
-    Alert.alert('Coming Soon', 'Media upload functionality will be available soon');
+    setShowMediaUpload(true);
+  };
+
+  const handleMediaUploadComplete = (mediaAssets: any[]) => {
+    setUploadedMediaAssets(mediaAssets);
+    if (mediaAssets.length > 0) {
+      setSelectedMedia(mediaAssets[0].url);
+    }
+    setShowMediaUpload(false);
+  };
+
+  const handleMediaUploadError = (error: string) => {
+    Alert.alert('Upload Error', error);
+    setShowMediaUpload(false);
   };
 
   const handleCreateEvent = () => {
@@ -342,6 +359,35 @@ const CreateScreen: React.FC = () => {
         }}
       />
     </Modal>
+
+    {/* Media Upload Modal */}
+    <Modal
+      visible={showMediaUpload}
+      animationType="slide"
+      presentationStyle="fullScreen"
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setShowMediaUpload(false)}
+          >
+            <Ionicons name="close" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Upload Media</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <MediaUpload
+          contextType="post"
+          contextId="temp-post-id"
+          mediaType="all"
+          maxFiles={10}
+          onUploadComplete={handleMediaUploadComplete}
+          onUploadError={handleMediaUploadError}
+          style={styles.mediaUploadContainer}
+        />
+      </View>
+    </Modal>
   </>
   );
 };
@@ -349,6 +395,33 @@ const CreateScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  placeholder: {
+    width: 40,
+  },
+  mediaUploadContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
   },
   header: {
     flexDirection: 'row',

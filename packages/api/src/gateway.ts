@@ -113,10 +113,55 @@ export class ApiGateway {
     return this.call('update-event', { method: 'PUT', body: { event_id: eventId, ...updateData } });
   }
   
+  // ===== UNIFIED MEDIA SERVICE =====
+  async uploadMedia(params: {
+    media_data: string; // base64 encoded media
+    media_type: 'image' | 'video' | 'audio';
+    content_type: string;
+    context_type: 'event' | 'post' | 'profile' | 'organization';
+    context_id: string;
+    filename?: string;
+    title?: string;
+    description?: string;
+    tags?: string[];
+    optimize?: boolean;
+    resize?: {
+      width?: number;
+      height?: number;
+      quality?: number;
+    };
+    convert_video?: {
+      format?: 'mp4' | 'webm' | 'mov';
+      quality?: 'low' | 'medium' | 'high';
+    };
+  }): Promise<EdgeFunctionResponse<any>> {
+    return this.call('media-service', { method: 'POST', body: params });
+  }
+
+  async getMediaAssets(contextType: string, contextId: string, mediaType?: string, limit?: number, offset?: number): Promise<EdgeFunctionResponse<any>> {
+    const params: any = { context_type: contextType, context_id: contextId };
+    if (mediaType) params.media_type = mediaType;
+    if (limit) params.limit = limit;
+    if (offset) params.offset = offset;
+    return this.call('media-service', { method: 'GET', params });
+  }
+
+  async deleteMediaAsset(mediaId: string): Promise<EdgeFunctionResponse<any>> {
+    return this.call('media-service', { method: 'DELETE', body: { media_id: mediaId } });
+  }
+
+  // ===== LEGACY EVENT IMAGE UPLOAD (DEPRECATED) =====
+  /**
+   * @deprecated Use uploadMedia() instead
+   */
   async uploadEventImage(eventId: string, imageData: string, imageType: string): Promise<EdgeFunctionResponse<any>> {
-    return this.call('upload-event-image', { 
-      method: 'POST', 
-      body: { event_id: eventId, image_data: imageData, image_type: imageType } 
+    console.warn('uploadEventImage is deprecated. Use uploadMedia() instead.');
+    return this.uploadMedia({
+      media_data: imageData,
+      media_type: 'image',
+      content_type: 'image/jpeg',
+      context_type: 'event',
+      context_id: eventId
     });
   }
   

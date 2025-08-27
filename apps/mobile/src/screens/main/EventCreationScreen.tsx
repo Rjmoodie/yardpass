@@ -10,8 +10,10 @@ import {
   TextInput,
   Alert,
   Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { MediaUpload } from '../../components/MediaUpload';
 
 interface EventForm {
   title: string;
@@ -40,6 +42,8 @@ const EventCreationScreen: React.FC = () => {
 
   const [activeStep, setActiveStep] = useState(1);
   const [showPreview, setShowPreview] = useState(false);
+  const [showMediaUpload, setShowMediaUpload] = useState(false);
+  const [uploadedMediaAssets, setUploadedMediaAssets] = useState<any[]>([]);
 
   const categories = [
     'Music Festival',
@@ -58,8 +62,20 @@ const EventCreationScreen: React.FC = () => {
   };
 
   const handleImageUpload = () => {
-    // Here you would implement image picker functionality
-    Alert.alert('Image Upload', 'Image picker would open here');
+    setShowMediaUpload(true);
+  };
+
+  const handleMediaUploadComplete = (mediaAssets: any[]) => {
+    setUploadedMediaAssets(mediaAssets);
+    if (mediaAssets.length > 0) {
+      setFormData(prev => ({ ...prev, image: mediaAssets[0].url }));
+    }
+    setShowMediaUpload(false);
+  };
+
+  const handleMediaUploadError = (error: string) => {
+    Alert.alert('Upload Error', error);
+    setShowMediaUpload(false);
   };
 
   const handleDateSelect = () => {
@@ -382,6 +398,35 @@ const EventCreationScreen: React.FC = () => {
           {renderPreview()}
         </View>
       )}
+
+      {/* Media Upload Modal */}
+      <Modal
+        visible={showMediaUpload}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowMediaUpload(false)}
+            >
+              <Ionicons name="close" size={24} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Upload Event Image</Text>
+            <View style={styles.placeholder} />
+          </View>
+          <MediaUpload
+            contextType="event"
+            contextId="temp-event-id"
+            mediaType="image"
+            maxFiles={1}
+            onUploadComplete={handleMediaUploadComplete}
+            onUploadError={handleMediaUploadError}
+            style={styles.mediaUploadContainer}
+          />
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -700,6 +745,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'white',
     marginLeft: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#1a1a1a',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333333',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+  },
+  placeholder: {
+    width: 40,
+  },
+  mediaUploadContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
   },
 });
 

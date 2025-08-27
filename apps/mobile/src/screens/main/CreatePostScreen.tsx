@@ -11,8 +11,10 @@ import {
   Alert,
   FlatList,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { MediaUpload } from '../../components/MediaUpload';
 
 interface MediaItem {
   id: string;
@@ -46,6 +48,8 @@ const CreatePostScreen: React.FC = () => {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showAudiencePicker, setShowAudiencePicker] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [showMediaUpload, setShowMediaUpload] = useState(false);
+  const [uploadedMediaAssets, setUploadedMediaAssets] = useState<any[]>([]);
 
   const mockLocations: Location[] = [
     {
@@ -93,36 +97,24 @@ const CreatePostScreen: React.FC = () => {
   ];
 
   const handleAddMedia = () => {
-    Alert.alert(
-      'Add Media',
-      'Choose media type',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Photo', 
-          onPress: () => {
-            const newMedia: MediaItem = {
-              id: Date.now().toString(),
-              uri: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400',
-              type: 'image',
-            };
-            setSelectedMedia(prev => [...prev, newMedia]);
-          }
-        },
-        { 
-          text: 'Video', 
-          onPress: () => {
-            const newMedia: MediaItem = {
-              id: Date.now().toString(),
-              uri: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=400',
-              type: 'video',
-              duration: 15,
-            };
-            setSelectedMedia(prev => [...prev, newMedia]);
-          }
-        },
-      ]
-    );
+    setShowMediaUpload(true);
+  };
+
+  const handleMediaUploadComplete = (mediaAssets: any[]) => {
+    setUploadedMediaAssets(mediaAssets);
+    const newMediaItems: MediaItem[] = mediaAssets.map(asset => ({
+      id: asset.id,
+      uri: asset.url,
+      type: asset.media_type === 'video' ? 'video' : 'image',
+      duration: asset.duration,
+    }));
+    setSelectedMedia(prev => [...prev, ...newMediaItems]);
+    setShowMediaUpload(false);
+  };
+
+  const handleMediaUploadError = (error: string) => {
+    Alert.alert('Upload Error', error);
+    setShowMediaUpload(false);
   };
 
   const handleRemoveMedia = (mediaId: string) => {
@@ -435,6 +427,35 @@ const CreatePostScreen: React.FC = () => {
       {/* Modals */}
       {showLocationPicker && renderLocationPicker()}
       {showAudiencePicker && renderAudiencePicker()}
+
+      {/* Media Upload Modal */}
+      <Modal
+        visible={showMediaUpload}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <View style={styles.mediaModalContainer}>
+          <View style={styles.mediaModalHeader}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowMediaUpload(false)}
+            >
+              <Ionicons name="close" size={24} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.mediaModalTitle}>Upload Media</Text>
+            <View style={styles.placeholder} />
+          </View>
+          <MediaUpload
+            contextType="post"
+            contextId="temp-post-id"
+            mediaType="all"
+            maxFiles={10}
+            onUploadComplete={handleMediaUploadComplete}
+            onUploadError={handleMediaUploadError}
+            style={styles.mediaUploadContainer}
+          />
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -817,6 +838,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#a3a3a3',
     marginTop: 2,
+  },
+  mediaModalContainer: {
+    flex: 1,
+    backgroundColor: '#1a1a1a',
+  },
+  mediaModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333333',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  mediaModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+  },
+  placeholder: {
+    width: 40,
+  },
+  mediaUploadContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
   },
 });
 

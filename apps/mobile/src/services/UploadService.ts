@@ -1,5 +1,23 @@
+/**
+ * @deprecated This service is deprecated. Use MediaUpload component with apiGateway.uploadMedia() instead.
+ * 
+ * MIGRATION GUIDE:
+ * OLD: import { useUpload } from '@/services/UploadService';
+ * NEW: import { MediaUpload } from '@/components/MediaUpload';
+ * 
+ * Benefits of new approach:
+ * - Unified media service
+ * - Better error handling
+ * - Progress tracking
+ * - Support for all media types
+ * - Consistent API
+ */
+
+// @ts-ignore - Deprecated service, keeping for backward compatibility
 import { supabase } from '@/integrations/supabase/client';
+// @ts-ignore - Deprecated service, keeping for backward compatibility
 import * as ImagePicker from 'expo-image-picker';
+// @ts-ignore - Deprecated service, keeping for backward compatibility
 import * as FileSystem from 'expo-file-system';
 
 export interface UploadProgress {
@@ -341,12 +359,16 @@ export class UploadService {
 }
 
 // Hook for using upload service in components
+// @deprecated Use MediaUpload component instead
 export const useUpload = () => {
+  console.warn('useUpload is deprecated. Use MediaUpload component with apiGateway.uploadMedia() instead.');
+  
   const uploadImage = async (
     bucket: 'event-media' | 'avatars' | 'post-media',
     path: string,
     onProgress?: (progress: UploadProgress) => void
   ): Promise<UploadResult | null> => {
+    console.warn('uploadImage is deprecated. Use MediaUpload component instead.');
     try {
       const uri = await UploadService.pickImage();
       if (!uri) return null;
@@ -363,6 +385,7 @@ export const useUpload = () => {
     path: string,
     onProgress?: (progress: UploadProgress) => void
   ): Promise<UploadResult | null> => {
+    console.warn('uploadVideo is deprecated. Use MediaUpload component instead.');
     try {
       const uri = await UploadService.pickVideo();
       if (!uri) return null;

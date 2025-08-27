@@ -26,8 +26,7 @@ export { OrdersService } from './services/orders';
 export { SearchService } from './services/search';
 export { OrganizationsService } from './services/organizations';
 export { CommentsService } from './services/comments';
-export { UploadService } from './services/upload';
-export { VideoService } from './services/video';
+// UploadService and VideoService removed - use apiGateway.uploadMedia() instead
 export { CheckinsService } from './services/checkins';
 export { AuthService } from './services/auth';
 
