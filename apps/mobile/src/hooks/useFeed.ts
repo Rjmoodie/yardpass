@@ -4,8 +4,9 @@ import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 
 // Temporary types until packages are built
 interface FeedFilter {
-  type: 'all' | 'following' | 'trending' | 'nearby';
+  type: 'all' | 'following' | 'trending' | 'nearby' | 'for_you' | 'near_me';
   cursor?: string;
+  limit?: number;
 }
 
 interface FeedItem {
@@ -23,13 +24,18 @@ interface FeedItem {
   timestamp: string;
 }
 
+interface FeedResponse {
+  items: FeedItem[];
+  meta: {
+    cursor: string | null;
+  };
+}
+
 // Temporary API client until packages are built
 const apiClient = {
-  getFeed: async (filter: FeedFilter) => ({ 
-    data: { 
-      items: [], 
-      meta: { cursor: null } 
-    } 
+  getFeed: async (filter: FeedFilter): Promise<FeedResponse> => ({ 
+    items: [], 
+    meta: { cursor: null } 
   }),
 };
 
@@ -40,18 +46,19 @@ const queryKeys = {
 };
 
 export const useFeed = {
-  fetchFeed: async (filter: FeedFilter) => {
+  fetchFeed: async (filter: FeedFilter): Promise<FeedResponse> => {
     const response = await apiClient.getFeed(filter);
-    return response.data;
+    return response;
   },
 
   useFeed: (filter: FeedFilter) => {
     return useInfiniteQuery({
       queryKey: queryKeys.feed.list(filter),
-      queryFn: ({ pageParam }) => useFeed.fetchFeed({ ...filter, cursor: pageParam }),
-      getNextPageParam: (lastPage) => lastPage.meta?.cursor,
+      queryFn: ({ pageParam }) => useFeed.fetchFeed({ ...filter, cursor: pageParam as string }),
+      getNextPageParam: (lastPage: FeedResponse) => lastPage.meta?.cursor,
+      initialPageParam: '',
       staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 10 * 60 * 1000, // 10 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (replaces cacheTime)
     });
   },
 

@@ -3,8 +3,9 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 // Temporary type until packages are built
 interface FeedFilter {
-  type: 'all' | 'following' | 'trending' | 'nearby';
+  type: 'all' | 'following' | 'trending' | 'nearby' | 'for_you' | 'near_me';
   cursor?: string;
+  limit?: number;
 }
 
 interface FeedState {

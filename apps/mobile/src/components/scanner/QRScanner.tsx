@@ -9,7 +9,7 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { Camera, CameraType, BarCodeScanner } from 'expo-camera';
+import { Camera, CameraType } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { theme } from '../../constants/theme';
@@ -123,7 +123,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.permissionContainer}>
-          <Ionicons name="camera-off-outline" size={64} color="#FF3B30" />
+          <Ionicons name="camera-outline" size={64} color="#FF3B30" />
           <Text style={[styles.permissionText, { color: theme.colors.text }]}>
             Camera access is required to scan QR codes
           </Text>
@@ -148,7 +148,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
         style={styles.camera}
         type={CameraType.back}
         barCodeScannerSettings={{
-          barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
+          barCodeTypes: ['qr'],
         }}
         onBarCodeScanned={handleBarCodeScanned}
       >

@@ -7,16 +7,32 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '../../hooks/useNavigation';
+import { useActions } from '../../hooks/useActions';
 
 const CreateScreen: React.FC = () => {
+  const {
+    navigateToCreatePost,
+    navigateToEventCreation,
+    navigateToCamera,
+    navigateToHome,
+    navigateToDiscover,
+    navigateToWallet,
+    navigateToProfile,
+  } = useNavigation();
+
+  const { handleCreatePost, handleCreateEvent } = useActions();
+
   const ActionButton = ({ 
     title, 
     isPrimary = false, 
-    onPress 
+    onPress,
+    icon 
   }: { 
     title: string; 
     isPrimary?: boolean; 
     onPress: () => void;
+    icon: string;
   }) => (
     <TouchableOpacity
       style={[
@@ -25,14 +41,22 @@ const CreateScreen: React.FC = () => {
       ]}
       onPress={onPress}
     >
-      <Text
-        style={[
-          styles.buttonText,
-          isPrimary ? styles.primaryButtonText : styles.secondaryButtonText,
-        ]}
-      >
-        {title}
-      </Text>
+      <View style={styles.buttonContent}>
+        <Ionicons 
+          name={icon as any} 
+          size={24} 
+          color={isPrimary ? "#1a1a1a" : "white"} 
+          style={styles.buttonIcon}
+        />
+        <Text
+          style={[
+            styles.buttonText,
+            isPrimary ? styles.primaryButtonText : styles.secondaryButtonText,
+          ]}
+        >
+          {title}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 
@@ -54,43 +78,62 @@ const CreateScreen: React.FC = () => {
             title="Video Post"
             isPrimary={true}
             onPress={() => {
-              // Handle video post creation
+              handleCreatePost();
+              navigateToCreatePost();
             }}
+            icon="videocam"
           />
           <ActionButton
             title="Story"
             onPress={() => {
-              // Handle story creation
+              handleCreatePost();
+              navigateToCreatePost();
             }}
+            icon="camera"
           />
           <ActionButton
             title="Go Live"
             onPress={() => {
-              // Handle live streaming
+              handleCreatePost();
+              navigateToCreatePost();
             }}
+            icon="radio"
+          />
+          <ActionButton
+            title="Create Event"
+            onPress={() => {
+              handleCreateEvent();
+              navigateToEventCreation();
+            }}
+            icon="calendar"
+          />
+          <ActionButton
+            title="Take Photo"
+            onPress={() => navigateToCamera()}
+            icon="camera-outline"
           />
         </View>
       </View>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNavigation}>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={navigateToHome}>
           <Ionicons name="home" size={24} color="#a3a3a3" />
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={navigateToDiscover}>
           <Ionicons name="search" size={24} color="#a3a3a3" />
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.createButton}>
+        <TouchableOpacity style={styles.createButton} onPress={() => {}}>
           <Ionicons name="add" size={28} color="#1a1a1a" />
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={navigateToWallet}>
           <Ionicons name="calendar" size={24} color="#a3a3a3" />
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={navigateToProfile}>
           <Ionicons name="person" size={24} color="#a3a3a3" />
         </TouchableOpacity>
       </View>
@@ -106,54 +149,62 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
     paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
   },
   closeButton: {
-    padding: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: 'bold',
     color: 'white',
-    textAlign: 'center',
-    marginRight: 28, // Compensate for close button width
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   headerSpacer: {
-    width: 28,
+    width: 40,
   },
   mainContent: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 32,
-    paddingBottom: 32,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   buttonContainer: {
-    flexDirection: 'column',
     gap: 16,
   },
   actionButton: {
-    height: 56,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#333',
   },
   primaryButton: {
     backgroundColor: '#00ff88',
+    borderColor: '#00ff88',
   },
   secondaryButton: {
-    backgroundColor: '#2d2d2d',
+    backgroundColor: 'transparent',
+    borderColor: '#333',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonIcon: {
+    marginRight: 12,
   },
   buttonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
   },
   primaryButtonText: {
     color: '#1a1a1a',
@@ -162,36 +213,25 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   bottomNavigation: {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderTopWidth: 1,
-    borderTopColor: '#2d2d2d',
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingTop: 12,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
+    backgroundColor: '#1a1a1a',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
   },
   navItem: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 4,
   },
   createButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#00ff88',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -24,
-    shadowColor: '#00ff88',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
   },
 });
 

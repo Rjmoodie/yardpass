@@ -41,11 +41,15 @@ interface FeedItem {
   comments: number;
   shares: number;
   timestamp: string;
+  post?: {
+    event_id?: string;
+  };
 }
 
 interface FeedFilter {
-  type: 'all' | 'following' | 'trending' | 'nearby';
+  type: 'all' | 'following' | 'trending' | 'nearby' | 'for_you' | 'near_me';
   cursor?: string;
+  limit?: number;
 }
 import { theme } from '../../constants/theme';
 
@@ -66,7 +70,7 @@ export const VideoFeed: React.FC<VideoFeedProps> = ({
   onEventPress,
 }) => {
   const { user } = useAuth();
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<Animated.FlatList<FeedItem>>(null);
   const [visibleItems, setVisibleItems] = useState<Set<string>>(new Set());
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollY = useSharedValue(0);
@@ -135,10 +139,10 @@ export const VideoFeed: React.FC<VideoFeedProps> = ({
 
   const snapToIndex = useCallback((index: number) => {
     if (flatListRef.current) {
-      flatListRef.current.scrollToIndex({
-        index: Math.max(0, Math.min(index, feedItems.length - 1)),
-        animated: true,
-      });
+      // flatListRef.current.scrollToIndex({
+      //   index: Math.max(0, Math.min(index, feedItems.length - 1)),
+      //   animated: true,
+      // });
     }
   }, [feedItems.length]);
 
@@ -211,7 +215,13 @@ export const VideoFeed: React.FC<VideoFeedProps> = ({
               </Text>
             </View>
           }
-        />
+        >
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>
+              Failed to load feed. Pull to refresh.
+            </Text>
+          </View>
+        </ErrorBoundary>
       </View>
     );
   }

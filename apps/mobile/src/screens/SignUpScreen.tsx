@@ -78,7 +78,7 @@ const SignUpScreen: React.FC = () => {
     setIsLoading(true);
     try {
       await dispatch(signUp({
-        displayName: formData.displayName,
+        name: formData.displayName,
         handle: formData.handle,
         email: formData.email,
         password: formData.password,

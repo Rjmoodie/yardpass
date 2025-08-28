@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '../../hooks/useNavigation';
+import { useActions } from '../../hooks/useActions';
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,6 +24,8 @@ interface VideoPost {
   comments: string;
   videoUrl: string;
   userAvatar: string;
+  isLiked?: boolean;
+  isSaved?: boolean;
 }
 
 const mockVideoData: VideoPost[] = [
@@ -33,20 +37,88 @@ const mockVideoData: VideoPost[] = [
     comments: '1.2K',
     videoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB-e55RjGcBeQATlgffxlzElg5_kTlk9MeK1IQ-jRQag6LZPOlRkXiwniCNcA_ePUN6LqP-Ca8zApPZD8CBdUgfnAFS9LqRMAkxFgTZLiPvwXZa1-JGqIMVwVWX65Zgr7zT8VW7Css4riLTcF0hM4bkinuEBWodu0ln2ecR_bXwiV-KB3EgZfWNUTjESKZUe_KoV8Sh4ZZmWSZdNMivbXKntn7cfMuNtibRKJuKYqAeP_Eca5IiKN0eGiDZZVvP_UFHZG-5JxPE8hup',
     userAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAOud3-0ag7-uv70UrChHnSvUP3YTAuZkz_TmCC99mafx_Sk0MXnFB0k1l_zz8ab3MMrEU2Yp4Fh89XC_E1ciKk783d_n_7U6lzqQsWRWX1s-O3R3sMxpiCwZNxasxUv7QN4l1R3TWqC6GjvABEp57PZrI12RUSkIH_Ya7ueW16lU3A4Q3XPuwrDacDF4FMPUzk7GyWt98j8dCdgTr0ftQtMDl_dDjyqMNg28O5XMXTQ93Wfdn3jxSr3XwgDp5-87w96BFP7i-ybxYa',
+    isLiked: false,
+    isSaved: false,
   },
 ];
 
 const HomeScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'following' | 'foryou'>('foryou');
+  const [posts, setPosts] = useState<VideoPost[]>(mockVideoData);
+  
+  const {
+    navigateToHome,
+    navigateToDiscover,
+    navigateToCreate,
+    navigateToWallet,
+    navigateToProfile,
+    navigateToUserProfile,
+    navigateToComments,
+  } = useNavigation();
+  
+  const {
+    handleLikePost,
+    handleUnlikePost,
+    handleCommentPost,
+    handleSharePost,
+    handleSavePost,
+  } = useActions();
 
-  const ActionButton = ({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) => (
+  const ActionButton = ({ 
+    icon, 
+    label, 
+    onPress, 
+    isActive = false 
+  }: { 
+    icon: string; 
+    label: string; 
+    onPress: () => void;
+    isActive?: boolean;
+  }) => (
     <TouchableOpacity style={styles.actionButton} onPress={onPress}>
-      <View style={styles.actionIconContainer}>
-        <Ionicons name={icon as any} size={28} color="white" />
+      <View style={[styles.actionIconContainer, isActive && styles.actionIconContainerActive]}>
+        <Ionicons 
+          name={icon as any} 
+          size={28} 
+          color={isActive ? "#ff4757" : "white"} 
+        />
       </View>
       <Text style={styles.actionLabel}>{label}</Text>
     </TouchableOpacity>
   );
+
+  const handleLike = (postId: string) => {
+    const post = posts.find(p => p.id === postId);
+    if (post?.isLiked) {
+      handleUnlikePost(postId);
+    } else {
+      handleLikePost(postId);
+    }
+    
+    // Optimistic update
+    setPosts(prev => prev.map(p => 
+      p.id === postId 
+        ? { ...p, isLiked: !p.isLiked }
+        : p
+    ));
+  };
+
+  const handleSave = (postId: string) => {
+    const post = posts.find(p => p.id === postId);
+    if (post?.isSaved) {
+      // Handle unsave
+      console.log('Unsaving post:', postId);
+    } else {
+      handleSavePost(postId);
+    }
+    
+    // Optimistic update
+    setPosts(prev => prev.map(p => 
+      p.id === postId 
+        ? { ...p, isSaved: !p.isSaved }
+        : p
+    ));
+  };
 
   const VideoPost = ({ post }: { post: VideoPost }) => (
     <View style={styles.videoContainer}>
@@ -81,7 +153,9 @@ const HomeScreen: React.FC = () => {
         {/* Bottom Content */}
         <View style={styles.bottomContent}>
           <View style={styles.leftContent}>
-            <Text style={styles.username}>{post.username}</Text>
+            <TouchableOpacity onPress={() => navigateToUserProfile('user123')}>
+              <Text style={styles.username}>{post.username}</Text>
+            </TouchableOpacity>
             <Text style={styles.description}>{post.description}</Text>
             <View style={styles.musicInfo}>
               <Ionicons name="musical-notes" size={16} color="white" />
@@ -90,13 +164,34 @@ const HomeScreen: React.FC = () => {
           </View>
 
           <View style={styles.rightActions}>
-            <ActionButton icon="heart" label={post.likes} onPress={() => {}} />
-            <ActionButton icon="chatbubble" label={post.comments} onPress={() => {}} />
-            <ActionButton icon="bookmark" label="Save" onPress={() => {}} />
-            <ActionButton icon="share" label="Share" onPress={() => {}} />
+            <ActionButton 
+              icon={post.isLiked ? "heart" : "heart-outline"} 
+              label={post.likes} 
+              onPress={() => handleLike(post.id)}
+              isActive={post.isLiked}
+            />
+            <ActionButton 
+              icon="chatbubble-outline" 
+              label={post.comments} 
+              onPress={() => handleCommentPost(post.id)}
+            />
+            <ActionButton 
+              icon={post.isSaved ? "bookmark" : "bookmark-outline"} 
+              label="Save" 
+              onPress={() => handleSave(post.id)}
+              isActive={post.isSaved}
+            />
+            <ActionButton 
+              icon="share-outline" 
+              label="Share" 
+              onPress={() => handleSharePost(post.id)}
+            />
             
             {/* User Avatar */}
-            <TouchableOpacity style={styles.userAvatarContainer}>
+            <TouchableOpacity 
+              style={styles.userAvatarContainer}
+              onPress={() => navigateToUserProfile('user123')}
+            >
               <Image source={{ uri: post.userAvatar }} style={styles.userAvatar} />
             </TouchableOpacity>
           </View>
@@ -112,33 +207,33 @@ const HomeScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         style={styles.scrollView}
       >
-        {mockVideoData.map((post) => (
+        {posts.map((post) => (
           <VideoPost key={post.id} post={post} />
         ))}
       </ScrollView>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNavigation}>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={navigateToHome}>
           <Ionicons name="home" size={24} color="white" />
           <Text style={styles.navLabel}>Home</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={navigateToDiscover}>
           <Ionicons name="search" size={24} color="rgba(255,255,255,0.7)" />
           <Text style={[styles.navLabel, styles.inactiveNavLabel]}>Discover</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.createButton}>
+        <TouchableOpacity style={styles.createButton} onPress={navigateToCreate}>
           <Ionicons name="add" size={20} color="black" />
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={navigateToWallet}>
           <Ionicons name="calendar" size={24} color="rgba(255,255,255,0.7)" />
           <Text style={[styles.navLabel, styles.inactiveNavLabel]}>Events</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={navigateToProfile}>
           <Ionicons name="person" size={24} color="rgba(255,255,255,0.7)" />
           <Text style={[styles.navLabel, styles.inactiveNavLabel]}>Profile</Text>
         </TouchableOpacity>
@@ -207,13 +302,11 @@ const styles = StyleSheet.create({
   },
   bottomContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
     paddingBottom: 100,
   },
   leftContent: {
     flex: 1,
-    marginRight: 16,
+    marginRight: 20,
   },
   username: {
     color: 'white',
@@ -223,84 +316,87 @@ const styles = StyleSheet.create({
   },
   description: {
     color: 'white',
-    fontSize: 14,
-    marginBottom: 8,
+    fontSize: 16,
+    marginBottom: 12,
+    lineHeight: 22,
   },
   musicInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   musicText: {
     color: 'white',
     fontSize: 14,
+    marginLeft: 8,
   },
   rightActions: {
     alignItems: 'center',
-    gap: 24,
+    justifyContent: 'flex-end',
   },
   actionButton: {
     alignItems: 'center',
+    marginBottom: 20,
   },
   actionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+  actionIconContainerActive: {
+    backgroundColor: 'rgba(255,71,87,0.2)',
   },
   actionLabel: {
     color: 'white',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   userAvatarContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.5)',
-    overflow: 'hidden',
+    marginTop: 20,
   },
   userAvatar: {
-    width: '100%',
-    height: '100%',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: 'white',
   },
   bottomNavigation: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    backdropFilter: 'blur(10px)',
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 20,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
   },
   navItem: {
-    flex: 1,
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
+    flex: 1,
   },
   navLabel: {
     color: 'white',
     fontSize: 12,
+    marginTop: 4,
   },
   inactiveNavLabel: {
     color: 'rgba(255,255,255,0.7)',
   },
   createButton: {
-    width: 48,
-    height: 28,
-    backgroundColor: '#00ff88',
-    borderRadius: 8,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'white',
     alignItems: 'center',
     justifyContent: 'center',
+    marginHorizontal: 20,
   },
 });
 

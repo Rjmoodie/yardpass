@@ -96,7 +96,8 @@ const EventMapScreen: React.FC = () => {
         .not('latitude', 'is', null)
         .not('longitude', 'is', null)
         .gte('start_date', new Date().toISOString())
-        .order('start_date', { ascending: true });
+        .order('start_date', { ascending: true })
+        .execute();
 
       if (error) {
         console.error('Error fetching events:', error);

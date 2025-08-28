@@ -16,11 +16,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../contexts/ThemeContext';
 import { theme } from '../constants/theme';
 import { signOut } from '../store/slices/authSlice';
-import { RootState } from '../store';
+import { AppDispatch, RootState } from '../store';
 
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { currentTheme } = useTheme();
   const user = useSelector((state: RootState) => state.auth.user);
 

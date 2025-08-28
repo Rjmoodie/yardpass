@@ -10,6 +10,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '../../hooks/useNavigation';
+import { useAuth } from '../../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -47,6 +49,16 @@ const profileImages: ProfileImage[] = [
 
 const ProfileScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'content' | 'events'>('content');
+  
+  const {
+    navigateToEditProfile,
+    navigateToWallet,
+    navigateToSettings,
+    navigateToNotifications,
+    navigateToFollowersFollowing,
+  } = useNavigation();
+  
+  const { user } = useAuth();
 
   const StatItem = ({ value, label }: { value: string; label: string }) => (
     <View style={styles.statItem}>
@@ -61,13 +73,33 @@ const ProfileScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
+  const handleEditProfile = () => {
+    navigateToEditProfile();
+  };
+
+  const handleMyTickets = () => {
+    navigateToWallet();
+  };
+
+  const handleSettings = () => {
+    navigateToSettings();
+  };
+
+  const handleFollowers = () => {
+    navigateToFollowersFollowing('user123', 'followers');
+  };
+
+  const handleFollowing = () => {
+    navigateToFollowersFollowing('user123', 'following');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>@liamcarter</Text>
-        <TouchableOpacity style={styles.menuButton}>
+        <TouchableOpacity style={styles.menuButton} onPress={handleSettings}>
           <Ionicons name="ellipsis-vertical" size={24} color="white" />
         </TouchableOpacity>
       </View>
@@ -84,9 +116,9 @@ const ProfileScreen: React.FC = () => {
                 }}
                 style={styles.profilePicture}
               />
-              <View style={styles.editButton}>
+              <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
                 <Ionicons name="create" size={16} color="#1a1a1a" />
-              </View>
+              </TouchableOpacity>
             </View>
 
             {/* User Info */}
@@ -98,25 +130,31 @@ const ProfileScreen: React.FC = () => {
 
           {/* Stats */}
           <View style={styles.statsContainer}>
-            <StatItem value="1.2K" label="Followers" />
-            <StatItem value="45" label="Following" />
-            <StatItem value="23" label="Events" />
-          </View>
-
-          {/* Action Buttons */}
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.followButton}>
-              <Text style={styles.followButtonText}>Follow</Text>
+            <StatItem value="156" label="Posts" />
+            <TouchableOpacity onPress={handleFollowers}>
+              <StatItem value="2.4K" label="Followers" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.messageButton}>
-              <Text style={styles.messageButtonText}>Message</Text>
+            <TouchableOpacity onPress={handleFollowing}>
+              <StatItem value="892" label="Following" />
             </TouchableOpacity>
           </View>
 
           {/* Bio */}
-          <Text style={styles.bio}>
-            Creating unforgettable experiences. Join me at my next event! ✨ #EventLife #Creator
-          </Text>
+          <View style={styles.bioContainer}>
+            <Text style={styles.bioText}>
+              Event organizer and content creator. Sharing amazing experiences and creating unforgettable moments. 🎉
+            </Text>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.actionButtons}>
+            <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
+              <Text style={styles.editProfileText}>Edit Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.shareProfileButton}>
+              <Ionicons name="share-outline" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Tabs */}
@@ -126,51 +164,39 @@ const ProfileScreen: React.FC = () => {
               style={[styles.tab, activeTab === 'content' && styles.activeTab]}
               onPress={() => setActiveTab('content')}
             >
-              <Text style={[styles.tabText, activeTab === 'content' && styles.activeTabText]}>
-                Content
-              </Text>
+              <Ionicons 
+                name="grid-outline" 
+                size={24} 
+                color={activeTab === 'content' ? '#00ff88' : '#666'} 
+              />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tab, activeTab === 'events' && styles.activeTab]}
               onPress={() => setActiveTab('events')}
             >
-              <Text style={[styles.tabText, activeTab === 'events' && styles.activeTabText]}>
-                Events
-              </Text>
+              <Ionicons 
+                name="calendar-outline" 
+                size={24} 
+                color={activeTab === 'events' ? '#00ff88' : '#666'} 
+              />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Image Grid */}
-        <View style={styles.imageGrid}>
-          {profileImages.map((image) => (
-            <ProfileImage key={image.id} image={image} />
-          ))}
+        {/* Content Grid */}
+        <View style={styles.contentGrid}>
+          {activeTab === 'content' ? (
+            profileImages.map((image) => (
+              <ProfileImage key={image.id} image={image} />
+            ))
+          ) : (
+            <View style={styles.eventsContainer}>
+              <Text style={styles.noEventsText}>No events yet</Text>
+              <Text style={styles.noEventsSubtext}>Create your first event to get started</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNavigation}>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home" size={24} color="#a3a3a3" />
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="search" size={24} color="#a3a3a3" />
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.createButton}>
-          <Ionicons name="add" size={28} color="#1a1a1a" />
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="calendar" size={24} color="#a3a3a3" />
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="person" size={24} color="#00ff88" />
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };
@@ -184,25 +210,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: 'rgba(26, 26, 26, 0.8)',
-    backdropFilter: 'blur(10px)',
   },
   headerSpacer: {
-    width: 48,
+    width: 24,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
     color: 'white',
-    textAlign: 'center',
-    flex: 1,
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   menuButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -210,200 +233,148 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   profileSection: {
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    gap: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   profileInfo: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    marginBottom: 20,
   },
   profilePictureContainer: {
     position: 'relative',
+    marginRight: 16,
   },
   profilePicture: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    borderWidth: 4,
-    borderColor: '#262626',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   editButton: {
     position: 'absolute',
-    bottom: -8,
-    right: -8,
-    backgroundColor: '#00ff88',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
     borderRadius: 12,
-    padding: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
+    backgroundColor: '#00ff88',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   userInfo: {
-    alignItems: 'center',
+    flex: 1,
   },
   userName: {
+    color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
-    color: 'white',
-    textAlign: 'center',
+    marginBottom: 4,
   },
   userTitle: {
+    color: '#999',
     fontSize: 14,
-    color: '#a3a3a3',
-    textAlign: 'center',
   },
   statsContainer: {
     flexDirection: 'row',
-    gap: 32,
+    justifyContent: 'space-around',
+    marginBottom: 20,
   },
   statItem: {
     alignItems: 'center',
   },
   statValue: {
+    color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
-    color: 'white',
   },
   statLabel: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  bioContainer: {
+    marginBottom: 20,
+  },
+  bioText: {
+    color: 'white',
     fontSize: 14,
-    color: '#a3a3a3',
+    lineHeight: 20,
   },
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
-    width: '100%',
-    maxWidth: 300,
   },
-  followButton: {
+  editProfileButton: {
     flex: 1,
+    backgroundColor: '#333',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  editProfileText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  shareProfileButton: {
+    width: 48,
     height: 48,
-    backgroundColor: '#262626',
+    backgroundColor: '#333',
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  followButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  messageButton: {
-    flex: 1,
-    height: 48,
-    backgroundColor: '#00ff88',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  messageButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-  },
-  bio: {
-    fontSize: 14,
-    color: 'white',
-    textAlign: 'center',
-    maxWidth: 300,
-    lineHeight: 20,
   },
   tabsContainer: {
-    marginTop: 32,
-    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    paddingTop: 16,
   },
   tabs: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
   },
   tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   activeTab: {
+    borderBottomWidth: 2,
     borderBottomColor: '#00ff88',
   },
-  tabText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#a3a3a3',
-  },
-  activeTabText: {
-    color: '#00ff88',
-  },
-  imageGrid: {
+  contentGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    gap: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   profileImage: {
-    width: (width - 32 - 2) / 3,
-    aspectRatio: 1,
-    borderRadius: 8,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    width: (width - 60) / 3,
+    height: (width - 60) / 3,
+    marginBottom: 2,
+    marginRight: 2,
   },
   imageContent: {
     width: '100%',
     height: '100%',
+    borderRadius: 8,
   },
-  bottomNavigation: {
-    backgroundColor: '#1a1a1a',
-    borderTopWidth: 1,
-    borderTopColor: '#333333',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-  },
-  navItem: {
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-  },
-  createButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#00ff88',
+  eventsContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -16,
-    shadowColor: '#00ff88',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    paddingVertical: 60,
+  },
+  noEventsText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  noEventsSubtext: {
+    color: '#999',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
 

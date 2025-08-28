@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { RootStackParamList } from '../types/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { theme } from '../constants/theme';
@@ -128,7 +129,7 @@ const DiscoverScreen: React.FC = () => {
   const renderEventCard = ({ item: event }: { item: any }) => (
     <TouchableOpacity
       style={[styles.eventCard, { borderColor: theme.colors.border }]}
-      onPress={() => navigation.navigate('EventDetail' as never, { event } as never)}
+      onPress={() => navigation.navigate('EventDetails' as keyof RootStackParamList, { eventId: event.id })}
       activeOpacity={0.8}
     >
       <Image source={{ uri: event.image }} style={styles.eventImage} />

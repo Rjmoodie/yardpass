@@ -9,7 +9,7 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import { Video } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { theme } from '../../constants/theme';
@@ -310,7 +310,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({ videoUri, onSave, onClose }) 
           source={{ uri: videoUri }}
           style={styles.videoPreview}
           useNativeControls
-          resizeMode="contain"
+          resizeMode={ResizeMode.COVER}
           isLooping
         />
       </View>

@@ -5,6 +5,7 @@ interface Theme {
   colors: {
     primary: string;
     secondary: string;
+    accent: string;
     background: string;
     surface: string;
     text: string;
@@ -13,6 +14,8 @@ interface Theme {
     error: string;
     success: string;
     warning: string;
+    white: string;
+    black: string;
   };
   spacing: {
     xs: number;
@@ -60,6 +63,7 @@ export const theme: Theme = {
   colors: {
     primary: '#6366F1', // Indigo
     secondary: '#8B5CF6', // Violet
+    accent: '#EC4899', // Pink
     background: '#0F0F23', // Dark blue-black
     surface: '#1A1A2E', // Dark blue-gray
     text: '#FFFFFF',
@@ -68,6 +72,8 @@ export const theme: Theme = {
     error: '#EF4444',
     success: '#10B981',
     warning: '#F59E0B',
+    white: '#FFFFFF',
+    black: '#000000',
   },
   spacing: {
     xs: 4,

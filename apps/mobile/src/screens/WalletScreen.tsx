@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { RootStackParamList } from '../types/navigation';
 import { useTheme } from '../contexts/ThemeContext';
 import { theme } from '../constants/theme';
 
@@ -119,7 +120,7 @@ const WalletScreen: React.FC = () => {
   // ✅ OPTIMIZED: Memoized ticket press handler
   const handleTicketPress = useCallback((ticket: any) => {
     if (ticket.status === 'active') {
-      navigation.navigate('TicketDetail' as never, { ticket } as never);
+      navigation.navigate('TicketDetails' as keyof RootStackParamList, { ticketId: ticket.id });
     } else {
       Alert.alert('Ticket Details', `${ticket.eventName}\n${formatDate(ticket.eventDate)} at ${formatTime(ticket.eventTime)}`);
     }
@@ -224,7 +225,7 @@ const WalletScreen: React.FC = () => {
   const renderEmptyState = useCallback(() => (
     <View style={styles.emptyState}>
       <Ionicons
-        name="ticket-outline"
+        name="card-outline"
         size={64}
         color={theme.colors.textSecondary}
       />

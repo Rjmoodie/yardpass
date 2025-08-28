@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { apiGateway } from '@yardpass/api';
+import { apiGateway } from '@/services/api';
 
 const { width } = Dimensions.get('window');
 

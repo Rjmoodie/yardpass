@@ -1,60 +1,46 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  Image,
+  TextInput,
   TouchableOpacity,
+  FlatList,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
-  TextInput,
-  FlatList,
+  Dimensions,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '@/hooks/useTheme';
-import { apiGateway } from '@yardpass/api';
-import { debounce } from 'lodash';
+import { useNavigation } from '../../hooks/useNavigation';
+import { useActions } from '../../hooks/useActions';
 
-// ✅ OPTIMIZED: Enhanced search result interface
+const { width } = Dimensions.get('window');
+
 interface SearchResult {
   id: string;
-  type: 'user' | 'event' | 'post' | 'organization';
+  type: 'event' | 'user' | 'organization' | 'post';
   title: string;
-  subtitle?: string;
+  subtitle: string;
   image?: string;
-  avatar?: string;
-  followers?: string;
-  isVerified?: boolean;
-  isFollowing?: boolean;
-  relevanceScore?: number;
-  metadata?: any;
-}
-
-// ✅ OPTIMIZED: Search analytics interface
-interface SearchAnalytics {
-  query: string;
-  resultsCount: number;
-  searchTime: number;
-  clickedResult?: {
-    id: string;
-    type: string;
-    position: number;
+  relevanceScore: number;
+  metadata?: {
+    organizer?: string;
+    isVerified?: boolean;
+    category?: string;
+    searchHighlights?: string[];
+    quickActions?: string[];
   };
 }
 
-// ✅ OPTIMIZED: Trending topics with real data structure
 interface TrendingTopic {
   id: string;
   title: string;
-  posts: string;
-  category: string;
+  posts: number;
   trending: boolean;
 }
 
-// ✅ OPTIMIZED: Recent search with analytics
 interface RecentSearch {
   id: string;
   query: string;
@@ -63,157 +49,198 @@ interface RecentSearch {
   resultsCount: number;
 }
 
-const SearchScreen: React.FC = () => {
-  const navigation = useNavigation();
-  const { currentTheme } = useTheme();
-  const theme = currentTheme;
+interface SearchAnalytics {
+  query: string;
+  searchTime: number;
+  resultsCount: number;
+  filtersApplied: string[];
+}
 
-  // ✅ OPTIMIZED: State management with proper typing
+const SearchScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'users' | 'events' | 'posts' | 'organizations'>('all');
-  const [showResults, setShowResults] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
   const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [searchAnalytics, setSearchAnalytics] = useState<SearchAnalytics | null>(null);
-
-  // ✅ NEW: Enhanced search state variables
-  const [searchFacets, setSearchFacets] = useState<any>({});
-  const [relatedSearches, setRelatedSearches] = useState<string[]>([]);
-  const [trendingSearches, setTrendingSearches] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [userLocation, setUserLocation] = useState<string | null>(null);
-  const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
-  const [includePastEvents, setIncludePastEvents] = useState(false);
-
-  // ✅ OPTIMIZED: Refs for performance
+  
   const searchInputRef = useRef<TextInput>(null);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  
+  const {
+    navigateToEvent,
+    navigateToUserProfile,
+    navigateToPostDetails,
+    navigateToSearch,
+  } = useNavigation();
 
-  // ✅ OPTIMIZED: Memoized trending topics
-  const memoizedTrendingTopics = useMemo(() => [
-    { id: '1', title: '#SummerFest2024', posts: '12.5K', category: 'festival', trending: true },
-    { id: '2', title: '#LiveMusic', posts: '8.2K', category: 'music', trending: true },
-    { id: '3', title: '#FoodFestival', posts: '5.7K', category: 'food', trending: false },
-    { id: '4', title: '#ArtExhibition', posts: '3.1K', category: 'art', trending: false },
-    { id: '5', title: '#ComedyNight', posts: '2.8K', category: 'comedy', trending: false },
-  ], []);
+  // Mock data
+  const mockTrendingTopics: TrendingTopic[] = [
+    { id: '1', title: '#SummerFest2024', posts: 1234, trending: true },
+    { id: '2', title: '#LiveMusic', posts: 856, trending: true },
+    { id: '3', title: '#FoodFestival', posts: 567, trending: false },
+    { id: '4', title: '#ArtExhibition', posts: 234, trending: false },
+  ];
 
-  // ✅ OPTIMIZED: Memoized recent searches
-  const memoizedRecentSearches = useMemo(() => [
-    { id: '1', query: 'Liam Carter', type: 'user', timestamp: '2024-01-15T10:30:00Z', resultsCount: 3 },
-    { id: '2', query: 'Electric Echoes Festival', type: 'event', timestamp: '2024-01-14T15:45:00Z', resultsCount: 1 },
-    { id: '3', query: 'Dance videos', type: 'post', timestamp: '2024-01-13T09:20:00Z', resultsCount: 12 },
-    { id: '4', query: 'Live music', type: 'event', timestamp: '2024-01-12T18:15:00Z', resultsCount: 8 },
-  ], []);
+  const mockRecentSearches: RecentSearch[] = [
+    { id: '1', query: 'Summer Music Festival', type: 'event', timestamp: '2024-01-15T10:30:00Z', resultsCount: 45 },
+    { id: '2', query: 'John Smith', type: 'user', timestamp: '2024-01-14T15:20:00Z', resultsCount: 1 },
+    { id: '3', query: 'Rock Concert', type: 'event', timestamp: '2024-01-13T09:15:00Z', resultsCount: 23 },
+  ];
 
-  // ✅ OPTIMIZED: Initialize data
-  useEffect(() => {
-    setTrendingTopics(memoizedTrendingTopics);
-    setRecentSearches(memoizedRecentSearches);
-  }, [memoizedTrendingTopics, memoizedRecentSearches]);
+  // Initialize mock data
+  React.useEffect(() => {
+    setTrendingTopics(mockTrendingTopics);
+    setRecentSearches(mockRecentSearches);
+  }, []);
 
-  // ✅ OPTIMIZED: Debounced search function with new API
-  const debouncedSearch = useMemo(
-    () => debounce(async (query: string) => {
-      if (query.length < 2) {
-        setSearchResults([]);
-        setShowResults(false);
-        return;
-      }
-
-      setIsSearching(true);
-      const startTime = performance.now();
-
-      try {
-        // ✅ NEW: Use enhanced search with all features
-        const response = await apiGateway.search({
-          q: query,
-          types: activeTab === 'all' ? ['events', 'organizations', 'users', 'posts'] : [activeTab],
-          limit: 20,
-          sort_by: 'relevance',
-          // Add optional filters
-          category: selectedCategory,
-          location: userLocation,
-          radius_km: 50,
-          verified_only: showVerifiedOnly,
-          include_past_events: includePastEvents
-        });
-        
-        if (response.error) {
-          console.error('Search error:', response.error.message);
-          return;
-        }
-        
-        const searchResponse = response.data;
-
-        if (searchResponse) {
-          // ✅ NEW: Enhanced results with suggestions, trending, facets
-          const transformedResults = transformEnhancedResults(searchResponse.results.events || []);
-          setSearchResults(transformedResults);
-          setSuggestions(searchResponse.suggestions || []);
-          setTrendingSearches(searchResponse.trending || []);
-          setSearchFacets(searchResponse.meta.facets || {});
-          setRelatedSearches(searchResponse.related_searches || []);
-          setShowResults(true);
-
-          // ✅ TRACK: Enhanced search analytics
-          const searchTime = performance.now() - startTime;
-          setSearchAnalytics({
-            query,
-            resultsCount: transformedResults.length,
-            searchTime: Math.round(searchTime),
-            filtersApplied: searchResponse.filters_applied
-          });
-        }
-      } catch (error) {
-        console.error('Search error:', error);
-        Alert.alert('Search Error', 'Failed to perform search. Please try again.');
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300), // 300ms debounce
-    [activeTab, selectedCategory, userLocation, showVerifiedOnly, includePastEvents]
-  );
-
-  // ✅ ENHANCED: Debounced suggestions function
-  const debouncedGetSuggestions = useMemo(
-    () => debounce(async (query: string) => {
-      if (query.length < 1) {
-        setSuggestions([]);
-        setShowSuggestions(false);
-        return;
-      }
-
-      try {
-        // ✅ NEW: Use dedicated suggestions endpoint
-        const response = await apiGateway.getSearchSuggestions({
-          q: query,
-          limit: 5
-        });
-        
-        if (response.error) {
-          console.error('Suggestions error:', response.error.message);
-          return;
-        }
-        
-        const suggestionsResponse = response.data;
-        if (suggestionsResponse.suggestions) {
-          setSuggestions(suggestionsResponse.suggestions);
-          setShowSuggestions(true);
-        }
-      } catch (error) {
-        console.error('Suggestions error:', error);
-        // Don't show error for suggestions - fallback gracefully
-      }
-    }, 200), // 200ms debounce for suggestions
+  // ✅ OPTIMIZED: Debounced search function
+  const debouncedSearch = useCallback(
+    React.useMemo(
+      () => {
+        let timeoutId: NodeJS.Timeout;
+        return (query: string) => {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => {
+            performSearch(query);
+          }, 300);
+        };
+      },
+      []
+    ),
     []
   );
 
-  // ✅ OPTIMIZED: Handle search input changes
+  // ✅ OPTIMIZED: Debounced suggestions function
+  const debouncedGetSuggestions = useCallback(
+    React.useMemo(
+      () => {
+        let timeoutId: NodeJS.Timeout;
+        return (query: string) => {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => {
+            getSuggestions(query);
+          }, 200);
+        };
+      },
+      []
+    ),
+    []
+  );
+
+  // ✅ OPTIMIZED: Perform search with analytics
+  const performSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+
+    setIsLoading(true);
+    const startTime = Date.now();
+
+    try {
+      // Mock search results
+      const mockResults: SearchResult[] = [
+        {
+          id: '1',
+          type: 'event',
+          title: 'Summer Music Festival 2024',
+          subtitle: 'The biggest music festival of the summer',
+          image: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=400',
+          relevanceScore: 0.95,
+          metadata: {
+            organizer: 'Music Events Co.',
+            isVerified: true,
+            category: 'Music Festival',
+            searchHighlights: ['summer', 'music', 'festival'],
+            quickActions: ['Buy Tickets', 'Share', 'Save']
+          }
+        },
+        {
+          id: '2',
+          type: 'user',
+          title: 'Sarah Johnson',
+          subtitle: 'Event Organizer • 15 events',
+          image: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400',
+          relevanceScore: 0.87,
+          metadata: {
+            isVerified: true,
+            category: 'Organizer',
+            searchHighlights: ['sarah', 'johnson'],
+            quickActions: ['Follow', 'Message', 'View Profile']
+          }
+        },
+        {
+          id: '3',
+          type: 'post',
+          title: 'Amazing concert experience!',
+          subtitle: 'Just attended the best concert ever...',
+          image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400',
+          relevanceScore: 0.82,
+          metadata: {
+            category: 'Post',
+            searchHighlights: ['concert', 'experience'],
+            quickActions: ['Like', 'Comment', 'Share']
+          }
+        }
+      ];
+
+      const searchTime = Date.now() - startTime;
+      
+      setSearchResults(mockResults);
+      setShowResults(true);
+      setSearchAnalytics({
+        query,
+        searchTime,
+        resultsCount: mockResults.length,
+        filtersApplied: []
+      });
+
+      // ✅ TRACK: Search analytics
+      console.log('Search completed:', {
+        query,
+        resultsCount: mockResults.length,
+        searchTime,
+        filtersApplied: []
+      });
+
+    } catch (error) {
+      console.error('Search error:', error);
+      Alert.alert('Search Error', 'Failed to perform search. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // ✅ OPTIMIZED: Get search suggestions
+  const getSuggestions = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      // Mock suggestions
+      const mockSuggestions = [
+        `${query} festival`,
+        `${query} concert`,
+        `${query} 2024`,
+        `${query} tickets`,
+        `${query} near me`
+      ];
+
+      setSuggestions(mockSuggestions);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error('Suggestions error:', error);
+    }
+  }, []);
+
+  // ✅ OPTIMIZED: Handle search input
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
     
@@ -248,7 +275,8 @@ const SearchScreen: React.FC = () => {
       // ✅ TRACK: Result click analytics
       if (searchAnalytics) {
         try {
-          await apiGateway.trackUserBehavior({
+          // Mock analytics tracking
+          console.log('Analytics tracking:', {
             action: 'search_result_click',
             metadata: {
               query: searchAnalytics.query,
@@ -263,26 +291,27 @@ const SearchScreen: React.FC = () => {
           // Don't block user experience for analytics errors
         }
       console.log('Track result click:', {
-          searchAnalytics.query,
-          result.id,
-          result.type,
-          position
-        );
+        query: searchAnalytics.query,
+        resultId: result.id,
+        resultType: result.type,
+        position
+      });
       }
 
       // Navigate based on result type
       switch (result.type) {
         case 'event':
-          navigation.navigate('EventDetail', { eventId: result.id });
+          navigateToEvent(result.id);
           break;
         case 'user':
-          navigation.navigate('UserProfile', { userId: result.id });
+          navigateToUserProfile(result.id);
           break;
         case 'organization':
-          navigation.navigate('OrganizerDetail', { organizerId: result.id });
+          // Navigate to organizer profile (if implemented)
+          console.log('Navigate to organizer:', result.id);
           break;
         case 'post':
-          navigation.navigate('PostDetail', { postId: result.id });
+          navigateToPostDetails(result.id);
           break;
       }
 
@@ -299,7 +328,7 @@ const SearchScreen: React.FC = () => {
     } catch (error) {
       console.error('Result click error:', error);
     }
-  }, [searchAnalytics, searchQuery, navigation]);
+  }, [searchAnalytics, searchQuery, navigateToEvent, navigateToUserProfile, navigateToPostDetails]);
 
   // ✅ ENHANCED: Transform enhanced search results
   const transformEnhancedResults = useCallback((searchData: any): SearchResult[] => {
@@ -330,18 +359,18 @@ const SearchScreen: React.FC = () => {
   // ✅ OPTIMIZED: Memoized render functions
   const renderTrendingTopic = useCallback(({ item }: { item: TrendingTopic }) => (
     <TouchableOpacity 
-      style={[styles.trendingTopic, { backgroundColor: theme.colors.surface }]}
+      style={styles.trendingTopic}
       onPress={() => handleSearch(item.title)}
     >
       <View style={styles.trendingHeader}>
-        <Text style={[styles.trendingTitle, { color: theme.colors.text }]}>{item.title}</Text>
+        <Text style={styles.trendingTitle}>{item.title}</Text>
         {item.trending && (
           <Ionicons name="trending-up" size={16} color="#00ff88" />
         )}
       </View>
-      <Text style={[styles.trendingPosts, { color: theme.colors.textSecondary }]}>{item.posts} posts</Text>
+      <Text style={styles.trendingPosts}>{item.posts} posts</Text>
     </TouchableOpacity>
-  ), [theme.colors, handleSearch]);
+  ), [handleSearch]);
 
   const renderRecentSearch = useCallback(({ item }: { item: RecentSearch }) => (
     <TouchableOpacity 
@@ -351,11 +380,11 @@ const SearchScreen: React.FC = () => {
       <Ionicons 
         name={item.type === 'user' ? 'person' : item.type === 'event' ? 'calendar' : 'search'} 
         size={20} 
-        color={theme.colors.textSecondary} 
+        color="#666" 
       />
       <View style={styles.recentSearchContent}>
-        <Text style={[styles.recentSearchText, { color: theme.colors.text }]}>{item.query}</Text>
-        <Text style={[styles.recentSearchMeta, { color: theme.colors.textSecondary }]}>
+        <Text style={styles.recentSearchText}>{item.query}</Text>
+        <Text style={styles.recentSearchMeta}>
           {item.resultsCount} results • {new Date(item.timestamp).toLocaleDateString()}
         </Text>
       </View>
@@ -365,181 +394,103 @@ const SearchScreen: React.FC = () => {
           setRecentSearches(prev => prev.filter(search => search.id !== item.id));
         }}
       >
-        <Ionicons name="close" size={16} color={theme.colors.textSecondary} />
+        <Ionicons name="close" size={16} color="#666" />
       </TouchableOpacity>
     </TouchableOpacity>
-  ), [theme.colors, handleSearch]);
+  ), [handleSearch]);
 
   const renderSearchResult = useCallback(({ item, index }: { item: SearchResult; index: number }) => (
-    <TouchableOpacity
-      style={[styles.searchResult, { backgroundColor: theme.colors.surface }]}
+    <TouchableOpacity 
+      style={styles.searchResult}
       onPress={() => handleResultClick(item, index + 1)}
-      activeOpacity={0.7}
     >
-      <View style={styles.resultImageContainer}>
-        {item.avatar ? (
-          <Image source={{ uri: item.avatar }} style={styles.resultAvatar} />
-        ) : item.image ? (
-          <Image source={{ uri: item.image }} style={styles.resultImage} />
-        ) : (
-          <View style={[styles.resultPlaceholder, { backgroundColor: theme.colors.border }]}>
-            <Ionicons 
-              name={item.type === 'event' ? 'calendar' : item.type === 'user' ? 'person' : 'business'} 
-              size={24} 
-              color={theme.colors.textSecondary} 
-            />
-          </View>
-        )}
-      </View>
-      
+      <Image source={{ uri: item.image }} style={styles.resultImage} />
       <View style={styles.resultContent}>
         <View style={styles.resultHeader}>
-          <Text style={[styles.resultTitle, { color: theme.colors.text }]} numberOfLines={1}>
-            {item.title}
-          </Text>
-          {item.isVerified && (
+          <Text style={styles.resultTitle}>{item.title}</Text>
+          {item.metadata?.isVerified && (
             <Ionicons name="checkmark-circle" size={16} color="#00ff88" />
           )}
         </View>
-        
-        {item.subtitle && (
-          <Text style={[styles.resultSubtitle, { color: theme.colors.textSecondary }]} numberOfLines={2}>
-            {item.subtitle}
-          </Text>
+        <Text style={styles.resultSubtitle}>{item.subtitle}</Text>
+        {item.metadata?.organizer && (
+          <Text style={styles.resultOrganizer}>{item.metadata.organizer}</Text>
         )}
-        
-        {item.relevanceScore && (
-          <View style={styles.relevanceIndicator}>
-            <View 
-              style={[
-                styles.relevanceBar, 
-                { 
-                  width: `${item.relevanceScore * 100}%`,
-                  backgroundColor: item.relevanceScore > 0.7 ? '#00ff88' : 
-                                  item.relevanceScore > 0.4 ? '#ffaa00' : '#ff4444'
-                }
-              ]} 
-            />
-          </View>
-        )}
+        <View style={styles.resultMeta}>
+          <Text style={styles.resultType}>{item.type}</Text>
+          <Text style={styles.resultScore}>{Math.round(item.relevanceScore * 100)}% match</Text>
+        </View>
       </View>
     </TouchableOpacity>
-  ), [theme.colors, handleResultClick]);
-
-  const renderSuggestion = useCallback(({ item }: { item: string }) => (
-    <TouchableOpacity
-      style={[styles.suggestion, { backgroundColor: theme.colors.surface }]}
-      onPress={() => handleSearch(item)}
-    >
-      <Ionicons name="search" size={16} color={theme.colors.textSecondary} />
-      <Text style={[styles.suggestionText, { color: theme.colors.text }]}>{item}</Text>
-    </TouchableOpacity>
-  ), [theme.colors, handleSearch]);
-
-  // ✅ OPTIMIZED: Memoized empty state
-  const renderEmptyState = useMemo(() => {
-    if (isSearching) {
-      return (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[styles.emptyText, { color: theme.colors.text }]}>Searching...</Text>
-        </View>
-      );
-    }
-
-    if (searchQuery.length >= 2 && searchResults.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="search" size={48} color={theme.colors.textSecondary} />
-          <Text style={[styles.emptyText, { color: theme.colors.text }]}>No results found</Text>
-          <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
-            Try adjusting your search terms
-          </Text>
-        </View>
-      );
-    }
-
-    return null;
-  }, [isSearching, searchQuery, searchResults.length, theme.colors]);
-
-  // ✅ OPTIMIZED: Memoized search stats
-  const searchStats = useMemo(() => {
-    if (!searchAnalytics) return null;
-
-    return (
-      <View style={styles.searchStats}>
-        <Text style={[styles.searchStatsText, { color: theme.colors.textSecondary }]}>
-          {searchAnalytics.resultsCount} results in {searchAnalytics.searchTime}ms
-        </Text>
-      </View>
-    );
-  }, [searchAnalytics, theme.colors]);
+  ), [handleResultClick]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Search</Text>
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={[styles.searchBar, { borderColor: theme.colors.border }]}>
-          <Ionicons name="search-outline" size={20} color={theme.colors.textSecondary} />
+    <SafeAreaView style={styles.container}>
+      {/* Search Header */}
+      <View style={styles.searchHeader}>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
           <TextInput
             ref={searchInputRef}
-            style={[styles.searchInput, { color: theme.colors.text }]}
-            placeholder="Search events, organizers, users..."
-            placeholderTextColor={theme.colors.textSecondary}
+            style={styles.searchInput}
+            placeholder="Search events, people, posts..."
+            placeholderTextColor="#666"
             value={searchQuery}
             onChangeText={handleSearch}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
+            autoFocus
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={clearSearch} activeOpacity={0.7}>
-              <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
+            <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+              <Ionicons name="close-circle" size={20} color="#666" />
             </TouchableOpacity>
           )}
         </View>
+        <TouchableOpacity onPress={() => {}} style={styles.filterButton}>
+          <Ionicons name="options" size={20} color="#666" />
+        </TouchableOpacity>
       </View>
 
-      {/* Search Suggestions */}
-      {showSuggestions && suggestions.length > 0 && (
-        <View style={[styles.suggestionsContainer, { backgroundColor: theme.colors.surface }]}>
-          <FlatList
-            data={suggestions}
-            renderItem={renderSuggestion}
-            keyExtractor={(item) => item}
-            showsVerticalScrollIndicator={false}
-          />
+      {/* Search Results */}
+      {isLoading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#00ff88" />
+          <Text style={styles.loadingText}>Searching...</Text>
         </View>
       )}
 
-      {/* Search Results */}
-      {showResults ? (
-        <View style={styles.resultsContainer}>
-          {/* Search Stats */}
-          {searchStats}
-          
-          {/* Results List */}
-          <FlatList
-            data={searchResults}
-            renderItem={renderSearchResult}
-            keyExtractor={(item) => `${item.type}-${item.id}`}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={renderEmptyState}
-            contentContainerStyle={styles.resultsList}
-          />
+      {showResults && !isLoading && (
+        <FlatList
+          data={searchResults}
+          renderItem={renderSearchResult}
+          keyExtractor={(item) => item.id}
+          style={styles.resultsList}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      {/* Search Suggestions */}
+      {showSuggestions && !showResults && !isLoading && (
+        <View style={styles.suggestionsContainer}>
+          {suggestions.map((suggestion, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.suggestionItem}
+              onPress={() => handleSearch(suggestion)}
+            >
+              <Ionicons name="search" size={16} color="#666" />
+              <Text style={styles.suggestionText}>{suggestion}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      ) : (
-        /* Default Content */
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      )}
+
+      {/* Default Content */}
+      {!showResults && !showSuggestions && !isLoading && (
+        <View style={styles.defaultContent}>
           {/* Recent Searches */}
           {recentSearches.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Searches</Text>
+              <Text style={styles.sectionTitle}>Recent Searches</Text>
               <FlatList
                 data={recentSearches}
                 renderItem={renderRecentSearch}
@@ -551,7 +502,7 @@ const SearchScreen: React.FC = () => {
 
           {/* Trending Topics */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Trending Topics</Text>
+            <Text style={styles.sectionTitle}>Trending Topics</Text>
             <FlatList
               data={trendingTopics}
               renderItem={renderTrendingTopic}
@@ -561,111 +512,78 @@ const SearchScreen: React.FC = () => {
               contentContainerStyle={styles.trendingList}
             />
           </View>
-        </ScrollView>
+        </View>
       )}
     </SafeAreaView>
   );
 };
 
-// ✅ OPTIMIZED: Memoized component for performance
-export default React.memo(SearchScreen);
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#1a1a1a',
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  searchContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-  },
-  searchBar: {
+  searchHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#333',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginRight: 12,
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 10,
+    color: 'white',
     fontSize: 16,
-  },
-  suggestionsContainer: {
-    marginHorizontal: 20,
-    borderRadius: 12,
-    maxHeight: 200,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  suggestion: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
     paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
-  suggestionText: {
-    marginLeft: 10,
-    fontSize: 16,
+  clearButton: {
+    marginLeft: 8,
   },
-  resultsContainer: {
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#333',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingContainer: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  searchStats: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  searchStatsText: {
-    fontSize: 14,
+  loadingText: {
+    color: 'white',
+    fontSize: 16,
+    marginTop: 12,
   },
   resultsList: {
-    paddingHorizontal: 20,
+    flex: 1,
   },
   searchResult: {
     flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    marginBottom: 8,
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  resultImageContainer: {
-    marginRight: 12,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
   },
   resultImage: {
-    width: 50,
-    height: 50,
+    width: 60,
+    height: 60,
     borderRadius: 8,
-  },
-  resultAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-  },
-  resultPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginRight: 12,
   },
   resultContent: {
     flex: 1,
@@ -676,95 +594,111 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   resultTitle: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '600',
-    flex: 1,
+    marginRight: 8,
   },
   resultSubtitle: {
+    color: '#999',
     fontSize: 14,
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  relevanceIndicator: {
-    height: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 1,
-    overflow: 'hidden',
+  resultOrganizer: {
+    color: '#00ff88',
+    fontSize: 12,
+    marginBottom: 4,
   },
-  relevanceBar: {
-    height: '100%',
-    borderRadius: 1,
+  resultMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
-  content: {
+  resultType: {
+    color: '#666',
+    fontSize: 12,
+    textTransform: 'uppercase',
+  },
+  resultScore: {
+    color: '#00ff88',
+    fontSize: 12,
+  },
+  suggestionsContainer: {
+    padding: 16,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  suggestionText: {
+    color: 'white',
+    fontSize: 16,
+    marginLeft: 12,
+  },
+  defaultContent: {
     flex: 1,
+    padding: 16,
   },
   section: {
-    marginBottom: 25,
+    marginBottom: 24,
   },
   sectionTitle: {
+    color: 'white',
     fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 15,
-    paddingHorizontal: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
   },
   recentSearch: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
     paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
   },
   recentSearchContent: {
     flex: 1,
     marginLeft: 12,
   },
   recentSearchText: {
+    color: 'white',
     fontSize: 16,
-    marginBottom: 2,
   },
   recentSearchMeta: {
+    color: '#666',
     fontSize: 12,
+    marginTop: 2,
   },
   removeButton: {
     padding: 4,
   },
   trendingList: {
-    paddingHorizontal: 20,
+    paddingRight: 16,
   },
   trendingTopic: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    marginRight: 10,
-    borderRadius: 20,
+    backgroundColor: '#333',
+    borderRadius: 12,
+    padding: 16,
+    marginRight: 12,
     minWidth: 120,
   },
   trendingHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   trendingTitle: {
+    color: 'white',
     fontSize: 14,
     fontWeight: '600',
     flex: 1,
   },
   trendingPosts: {
+    color: '#666',
     fontSize: 12,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    textAlign: 'center',
-    paddingHorizontal: 40,
-  },
 });
+
+export default SearchScreen;

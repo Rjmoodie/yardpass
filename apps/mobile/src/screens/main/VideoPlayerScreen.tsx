@@ -13,7 +13,7 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Video } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 
 const { width, height } = Dimensions.get('window');
 
@@ -156,7 +156,7 @@ const VideoPlayerScreen: React.FC = () => {
           ref={videoRef}
           source={{ uri: 'https://assets.mixkit.co/videos/preview/mixkit-man-dancing-under-the-rain-32432-large.mp4' }}
           style={styles.video}
-          resizeMode="cover"
+          resizeMode={ResizeMode.COVER}
           shouldPlay
           isLooping
           isMuted

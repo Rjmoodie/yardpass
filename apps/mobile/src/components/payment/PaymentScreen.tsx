@@ -274,7 +274,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
               </View>
               
               <View style={styles.infoRow}>
-                <Ionicons name="ticket-outline" size={16} color={theme.colors.textSecondary} />
+                <Ionicons name="card-outline" size={16} color={theme.colors.textSecondary} />
                 <Text style={[styles.infoText, { color: theme.colors.textSecondary }]}>
                   {ticket.quantity} {ticket.quantity === 1 ? 'ticket' : 'tickets'}
                 </Text>

@@ -19,7 +19,7 @@ import { theme } from '../constants/theme';
 import VideoRecorder from '../components/video/VideoRecorder';
 import VideoEditor from '../components/video/VideoEditor';
 import { MediaUpload } from '../components/MediaUpload';
-import { apiGateway } from '@yardpass/api';
+import { apiGateway } from '@/services/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -322,7 +322,7 @@ const CreateScreen: React.FC = () => {
               </Text>
             </View>
             <View style={styles.tipItem}>
-              <Ionicons name="hashtag-outline" size={16} color={theme.colors.primary} />
+              <Ionicons name="at-outline" size={16} color={theme.colors.primary} />
               <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
                 Add relevant hashtags to reach more people
               </Text>

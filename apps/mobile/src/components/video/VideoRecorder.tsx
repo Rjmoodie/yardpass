@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { Camera, CameraType, FlashMode } from 'expo-camera';
-import { Video } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { theme } from '../../constants/theme';
@@ -96,14 +96,14 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({ onVideoRecorded, onClose 
   const pauseRecording = () => {
     if (cameraRef.current && isRecording) {
       setIsPaused(true);
-      cameraRef.current.pauseRecording();
+      // cameraRef.current.pauseRecording();
     }
   };
 
   const resumeRecording = () => {
     if (cameraRef.current && isRecording) {
       setIsPaused(false);
-      cameraRef.current.resumeRecording();
+      // cameraRef.current.resumeRecording();
     }
   };
 
@@ -165,7 +165,7 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({ onVideoRecorded, onClose 
           source={{ uri: recordedVideo }}
           style={styles.videoPreview}
           useNativeControls
-          resizeMode="contain"
+          resizeMode={ResizeMode.COVER}
           isLooping
         />
         

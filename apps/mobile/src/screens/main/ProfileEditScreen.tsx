@@ -230,7 +230,7 @@ const ProfileEditScreen: React.FC = () => {
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>TikTok</Text>
         <View style={styles.socialInputContainer}>
-          <Ionicons name="logo-tiktok" size={20} color="#000000" style={styles.socialIcon} />
+          <Ionicons name="logo-twitter" size={20} color="#000000" style={styles.socialIcon} />
           <TextInput
             style={styles.socialInput}
             placeholder="@username"

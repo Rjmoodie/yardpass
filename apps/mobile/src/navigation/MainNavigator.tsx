@@ -3,11 +3,11 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
-import { HomeScreen } from '../screens/HomeScreen';
-import { DiscoverScreen } from '../screens/DiscoverScreen';
-import { CreateScreen } from '../screens/CreateScreen';
-import { WalletScreen } from '../screens/WalletScreen';
-import { ProfileScreen } from '../screens/ProfileScreen';
+import HomeScreen from '../screens/HomeScreen';
+import DiscoverScreen from '../screens/DiscoverScreen';
+import CreateScreen from '../screens/CreateScreen';
+import MyWalletScreen from '../screens/main/MyWalletScreen';
+import ProfileScreen from '../screens/main/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -78,7 +78,7 @@ export const MainNavigator: React.FC = () => {
       />
       <Tab.Screen 
         name="Wallet" 
-        component={WalletScreen}
+        component={MyWalletScreen}
         options={{ title: 'My Tickets' }}
       />
       <Tab.Screen 

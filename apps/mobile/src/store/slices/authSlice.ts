@@ -9,6 +9,9 @@ interface AuthUser {
   name: string;
   handle: string;
   avatar?: string;
+  avatar_url?: string;
+  display_name?: string;
+  bio?: string;
 }
 
 // Temporary service until packages are built
@@ -17,6 +20,7 @@ const AuthService = {
   signIn: async (credentials: any) => ({ data: { user: credentials, session: null } }),
   signOut: async () => {},
   getCurrentUser: async () => ({ data: null }),
+  resetPassword: async (email: string) => {},
 };
 
 interface AuthState {
@@ -60,6 +64,13 @@ export const getCurrentUser = createAsyncThunk('auth/getCurrentUser', async () =
   const response = await AuthService.getCurrentUser();
   return response.data;
 });
+
+export const resetPassword = createAsyncThunk(
+  'auth/resetPassword',
+  async (email: string) => {
+    await AuthService.resetPassword(email);
+  }
+);
 
 const authSlice = createSlice({
   name: 'auth',

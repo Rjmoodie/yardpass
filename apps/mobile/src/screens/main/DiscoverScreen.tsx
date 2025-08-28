@@ -70,7 +70,7 @@ const DiscoverScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
-  const HeatmapSpot = ({ size, top, left }: { size: number; top: string; left: string }) => (
+  const HeatmapSpot = ({ size, top, left }: { size: number; top: number; left: number }) => (
     <View
       style={[
         styles.heatmapSpot,
@@ -167,10 +167,10 @@ const DiscoverScreen: React.FC = () => {
         {/* Heatmap Overlay */}
         {viewMode === 'heatmap' && (
           <View style={styles.heatmapOverlay}>
-            <HeatmapSpot size={300} top="10%" left="5%" />
-            <HeatmapSpot size={250} top="40%" left="50%" />
-            <HeatmapSpot size={200} top="65%" left="15%" />
-            <HeatmapSpot size={150} top="5%" left="70%" />
+            <HeatmapSpot size={300} top={50} left={20} />
+            <HeatmapSpot size={250} top={200} left={200} />
+            <HeatmapSpot size={200} top={350} left={60} />
+            <HeatmapSpot size={150} top={25} left={280} />
           </View>
         )}
       </View>

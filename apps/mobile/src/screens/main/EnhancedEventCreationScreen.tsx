@@ -178,7 +178,8 @@ const EnhancedEventCreationScreen: React.FC = () => {
       const { data, error } = await supabase
         .from('event_templates')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .execute();
 
       if (!error) {
         setTemplates(data || []);
@@ -234,7 +235,8 @@ const EnhancedEventCreationScreen: React.FC = () => {
           description: templateDescription,
           template_data: templateData,
           is_public: false
-        });
+        })
+        .execute();
 
       if (!error) {
         setShowSaveTemplateModal(false);
@@ -363,10 +365,10 @@ const EnhancedEventCreationScreen: React.FC = () => {
           ]}>
             <Text style={styles.stepIcon}>{step.icon}</Text>
           </View>
-          <Text style={[
-            styles.stepTitle,
-            activeStep >= (index + 1) && styles.stepTitleActive
-          ]}>
+                          <Text style={[
+                  styles.stepTitleSmall,
+                  activeStep >= (index + 1) && styles.stepTitleActive
+                ]}>
             {step.title}
           </Text>
           {index < steps.length - 1 && (
@@ -540,7 +542,7 @@ const EnhancedEventCreationScreen: React.FC = () => {
                   styles.recurrenceTypeButton,
                   formData.recurrenceType === option.value && styles.selectedButton
                 ]}
-                onPress={() => handleRecurrenceTypeChange(option.value)}
+                onPress={() => handleRecurrenceTypeChange(option.value as 'daily' | 'weekly' | 'monthly' | 'yearly')}
               >
                 <Text style={styles.recurrenceIcon}>{option.icon}</Text>
                 <Text style={styles.recurrenceLabel}>{option.label}</Text>
@@ -845,7 +847,7 @@ const styles = StyleSheet.create({
   stepIcon: {
     fontSize: 16,
   },
-  stepTitle: {
+  stepTitleSmall: {
     fontSize: 12,
     color: '#666',
     textAlign: 'center',

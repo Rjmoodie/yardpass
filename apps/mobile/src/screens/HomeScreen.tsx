@@ -7,11 +7,12 @@ import { FeedFilterTabs } from '../components/feed/FeedFilterTabs';
 
 // Temporary type until packages are built
 interface FeedFilter {
-  type: 'all' | 'following' | 'trending' | 'nearby';
+  type: 'all' | 'following' | 'trending' | 'nearby' | 'for_you' | 'near_me';
   cursor?: string;
+  limit?: number;
 }
 
-export const HomeScreen: React.FC = () => {
+const HomeScreen: React.FC = () => {
   const { theme } = useTheme();
   const [currentFilter, setCurrentFilter] = useState<FeedFilter['type']>('for_you');
 
@@ -46,4 +47,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+export default HomeScreen;
 
