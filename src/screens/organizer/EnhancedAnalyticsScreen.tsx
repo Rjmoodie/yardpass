@@ -13,8 +13,8 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '@/constants/theme';
-import { apiGateway } from '@yardpass/api';
+import { theme } from '../../constants/theme';
+import { apiGateway } from '../../services/api';
 import {
   EnhancedAnalyticsData,
   AnalyticsInsights,

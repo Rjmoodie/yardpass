@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Button } from '@/components/common/Button';
-import { lightTheme, typography } from '@/constants/theme';
-import { RootStackParamList } from '@/types';
+import { Button } from '../../components/common/Button';
+import { lightTheme, typography } from '../../constants/theme';
+import { RootStackParamList } from '../../types';
 
 type PassesScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Main'>;
 

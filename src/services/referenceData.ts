@@ -1,5 +1,5 @@
-import { supabase } from '@/services/supabase';
-import { EventCategoryData, EventTag } from '@/types';
+import { supabase } from './supabase';
+import { EventCategoryData, EventTag } from '../types';
 
 export class ReferenceDataService {
   /**

@@ -4,37 +4,37 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
 // Main Tab Screens (Current Structure)
-import HomeScreen from '@/screens/main/HomeScreen';
-import DiscoverScreen from '@/screens/main/DiscoverScreen';
-import CreateScreen from '@/screens/main/CreateScreen';
-import WalletScreen from '@/screens/main/WalletScreen';
-import ProfileScreen from '@/screens/main/ProfileScreen';
+import HomeScreen from '../screens/main/HomeScreen';
+import DiscoverScreen from '../screens/main/DiscoverScreen';
+import CreateScreen from '../screens/main/CreateScreen';
+import WalletScreen from '../screens/main/WalletScreen';
+import ProfileScreen from '../screens/main/ProfileScreen';
 
 // Event Screens
-import EventHubScreen from '@/screens/events/EventHubScreen';
-import EventEditorScreen from '@/screens/events/EventEditorScreen';
+import EventHubScreen from '../screens/events/EventHubScreen';
+import EventEditorScreen from '../screens/events/EventEditorScreen';
 
 // Post Screens
-import CreatePostScreen from '@/screens/posts/CreatePostScreen';
-import PostDetailsScreen from '@/screens/posts/PostDetailsScreen';
+import CreatePostScreen from '../screens/posts/CreatePostScreen';
+import PostDetailsScreen from '../screens/posts/PostDetailsScreen';
 
 // Ticket Screens
-import TicketPurchaseScreen from '@/screens/tickets/TicketPurchaseScreen';
-import TicketDetailsScreen from '@/screens/tickets/TicketDetailsScreen';
+import TicketPurchaseScreen from '../screens/tickets/TicketPurchaseScreen';
+import TicketDetailsScreen from '../screens/tickets/TicketDetailsScreen';
 
 // Organizer Screens
-import OrganizerDashboardScreen from '@/screens/organizer/OrganizerDashboardScreen';
-import MediaSchedulerScreen from '@/screens/organizer/MediaSchedulerScreen';
-import AnalyticsScreen from '@/screens/organizer/EnhancedAnalyticsScreen';
+import OrganizerDashboardScreen from '../screens/organizer/OrganizerDashboardScreen';
+import MediaSchedulerScreen from '../screens/organizer/MediaSchedulerScreen';
+import AnalyticsScreen from '../screens/organizer/EnhancedAnalyticsScreen';
 
 // Other Screens
-import ChatScreen from '@/screens/chat/ChatScreen';
-import SettingsScreen from '@/screens/main/SettingsScreen';
-import NotificationsScreen from '@/screens/main/NotificationsScreen';
-import FollowersScreen from '@/screens/main/FollowersScreen';
+import ChatScreen from '../screens/chat/ChatScreen';
+import SettingsScreen from '../screens/main/SettingsScreen';
+import NotificationsScreen from '../screens/main/NotificationsScreen';
+import FollowersScreen from '../screens/main/FollowersScreen';
 
 // Types
-import { AuthenticatedStackParamList, MainTabParamList } from '@/types';
+import { AuthenticatedStackParamList, MainTabParamList } from '../types';
 
 const Stack = createStackNavigator<AuthenticatedStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();

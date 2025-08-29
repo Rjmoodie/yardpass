@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { supabase } from '@/services/supabase';
-import { YardPass, PassesState, CreatePassForm, UpdatePassForm, PassFilters } from '@/types';
+import { supabase } from '../../services/supabase';
+import { YardPass, PassesState, CreatePassForm, UpdatePassForm, PassFilters } from '../../types';
 
 // Async thunks
 export const fetchPasses = createAsyncThunk(

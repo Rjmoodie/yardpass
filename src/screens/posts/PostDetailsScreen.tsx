@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { theme } from '@/constants/theme';
+import { theme } from '../../constants/theme';
 
 const PostDetailsScreen: React.FC = () => {
   return (

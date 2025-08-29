@@ -3,21 +3,21 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 
 // Public Screens (No Auth Required)
-import WelcomeScreen from '@/screens/public/WelcomeScreen';
-import PublicEventsScreen from '@/screens/public/PublicEventsScreen';
-import PublicEventDetailsScreen from '@/screens/public/PublicEventDetailsScreen';
-import PublicOrganizerScreen from '@/screens/public/PublicOrganizerScreen';
-import PublicFeedScreen from '@/screens/public/PublicFeedScreen';
+import WelcomeScreen from '../screens/public/WelcomeScreen';
+import PublicEventsScreen from '../screens/public/PublicEventsScreen';
+import PublicEventDetailsScreen from '../screens/public/PublicEventDetailsScreen';
+import PublicOrganizerScreen from '../screens/public/PublicOrganizerScreen';
+import PublicFeedScreen from '../screens/public/PublicFeedScreen';
 
 // Auth Screens (For Sign Up/Sign In)
-import SignInScreen from '@/screens/auth/SignInScreen';
-import SignUpScreen from '@/screens/auth/SignUpScreen';
+import SignInScreen from '../screens/auth/SignInScreen';
+import SignUpScreen from '../screens/auth/SignUpScreen';
 
 // Auth Prompt Screen
-import AuthPromptScreen from '@/screens/auth/AuthPromptScreen';
+import AuthPromptScreen from '../screens/auth/AuthPromptScreen';
 
 // Types
-import { PublicStackParamList } from '@/types';
+import { PublicStackParamList } from '../types';
 
 const Stack = createStackNavigator<PublicStackParamList>();
 

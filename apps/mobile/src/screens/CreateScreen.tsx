@@ -19,7 +19,7 @@ import { theme } from '../constants/theme';
 import VideoRecorder from '../components/video/VideoRecorder';
 import VideoEditor from '../components/video/VideoEditor';
 import { MediaUpload } from '../components/MediaUpload';
-import { apiGateway } from '@/services/api';
+import { apiGateway } from '../../services/api';
 
 const { width, height } = Dimensions.get('window');
 

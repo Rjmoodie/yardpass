@@ -18,17 +18,29 @@
       "bundleIdentifier": "com.yardpass.app"
     },
     "android": {
-      "package": "com.yardpass.app"
+      "package": "com.yardpass.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE"
+      ]
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "entryPoint": "./index.js"
     },
-
     "plugins": [
       "expo-camera",
       "expo-location",
       "expo-notifications",
       "expo-image-picker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ccabf159-b0ff-4b86-9983-ec385d2bc9d6"
+      }
+    }
   }
 }

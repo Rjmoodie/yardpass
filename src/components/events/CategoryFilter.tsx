@@ -7,9 +7,9 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { theme } from '@/constants/theme';
-import { apiGateway } from '@yardpass/api';
-import { EventCategoryData } from '@/types';
+import { theme } from '../../constants/theme';
+import { apiGateway } from '../../services/api';
+import { EventCategoryData } from '../../types';
 
 interface CategoryFilterProps {
   selectedCategory?: string;

@@ -14,9 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch } from 'react-redux';
-import { supabase } from '@/services/supabase';
-import { resetPassword } from '@/store/slices/authSlice';
-import { theme } from '@/constants/theme';
+import { supabase } from '../../services/supabase';
+import { resetPassword } from '../../store/slices/authSlice';
+import { theme } from '../../constants/theme';
 
 const ResetPasswordScreen: React.FC = () => {
   const navigation = useNavigation();

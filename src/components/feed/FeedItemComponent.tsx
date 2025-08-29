@@ -14,7 +14,7 @@ import {
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '@/store';
+import { RootState } from '../../store';
 import { 
   likePost, 
   sharePost, 
@@ -22,9 +22,9 @@ import {
   updateWatchTime,
   updateLikeStatus,
   updateShareCount 
-} from '@/store/slices/postsSlice';
-import { FeedItem, Post, User, Event, AccessLevel } from '@/types';
-import { theme } from '@/constants/theme';
+} from '../../store/slices/postsSlice';
+import { FeedItem, Post, User, Event, AccessLevel } from '../../types';
+import { theme } from '../../constants/theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 

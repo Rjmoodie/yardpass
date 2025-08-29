@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { supabase, TABLES, formatResponse } from '@/services/supabase';
-import { Campaign, CampaignsState, CampaignObjective, CampaignStatus } from '@/types';
+import { supabase, TABLES, formatResponse } from '../../services/supabase';
+import { Campaign, CampaignsState, CampaignObjective, CampaignStatus } from '../../types';
 
 // Async thunks
 export const fetchCampaigns = createAsyncThunk(

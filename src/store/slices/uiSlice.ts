@@ -1,39 +1,54 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { UIState, ModalState, ToastState, NavigationState } from '@/types';
+
+interface UIState {
+  theme: 'light' | 'dark' | 'auto';
+  isLoading: boolean;
+  bottomSheetOpen: boolean;
+  modalOpen: boolean;
+  currentModal: string | null;
+}
 
 const initialState: UIState = {
-  theme: 'light',
+  theme: 'dark',
   isLoading: false,
-  modal: null,
-  toast: null,
-  navigation: {
-    currentRoute: '',
-    previousRoute: '',
-    params: {},
-  },
+  bottomSheetOpen: false,
+  modalOpen: false,
+  currentModal: null,
 };
 
 const uiSlice = createSlice({
   name: 'ui',
   initialState,
   reducers: {
-    setTheme: (state, action: PayloadAction<'light' | 'dark'>) => {
+    setTheme: (state, action: PayloadAction<'light' | 'dark' | 'auto'>) => {
       state.theme = action.payload;
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
-    setModal: (state, action: PayloadAction<ModalState | null>) => {
-      state.modal = action.payload;
+    setBottomSheetOpen: (state, action: PayloadAction<boolean>) => {
+      state.bottomSheetOpen = action.payload;
     },
-    setToast: (state, action: PayloadAction<ToastState | null>) => {
-      state.toast = action.payload;
+    setModalOpen: (state, action: PayloadAction<boolean>) => {
+      state.modalOpen = action.payload;
+      if (!action.payload) {
+        state.currentModal = null;
+      }
     },
-    setNavigation: (state, action: PayloadAction<NavigationState>) => {
-      state.navigation = action.payload;
+    setCurrentModal: (state, action: PayloadAction<string | null>) => {
+      state.currentModal = action.payload;
+      state.modalOpen = !!action.payload;
     },
   },
 });
 
-export const { setTheme, setLoading, setModal, setToast, setNavigation } = uiSlice.actions;
+export const { 
+  setTheme, 
+  setLoading, 
+  setBottomSheetOpen, 
+  setModalOpen, 
+  setCurrentModal 
+} = uiSlice.actions;
 export default uiSlice.reducer;
+
+

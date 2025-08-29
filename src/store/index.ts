@@ -1,33 +1,50 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { api } from './api';
+import { persistStore, persistReducer } from 'redux-persist';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import authReducer from './slices/authSlice';
+import feedReducer from './slices/feedSlice';
 import eventsReducer from './slices/eventsSlice';
-import postsReducer from './slices/postsSlice';
 import ticketsReducer from './slices/ticketsSlice';
+import uiReducer from './slices/uiSlice';
+import postsReducer from './slices/postsSlice';
+import notificationsReducer from './slices/notificationsSlice';
+import passesReducer from './slices/passesSlice';
 import organizersReducer from './slices/organizersSlice';
 import campaignsReducer from './slices/campaignsSlice';
-import notificationsReducer from './slices/notificationsSlice';
-import uiReducer from './slices/uiSlice';
+
+const persistConfig = {
+  key: 'root',
+  storage: AsyncStorage,
+  whitelist: ['auth', 'ui'], // Only persist auth and UI state
+};
+
+const persistedAuthReducer = persistReducer(persistConfig, authReducer);
 
 export const store = configureStore({
   reducer: {
-    auth: authReducer,
+    auth: persistedAuthReducer,
+    feed: feedReducer,
     events: eventsReducer,
-    posts: postsReducer,
     tickets: ticketsReducer,
+    ui: uiReducer,
+    posts: postsReducer,
+    notifications: notificationsReducer,
+    passes: passesReducer,
     organizers: organizersReducer,
     campaigns: campaignsReducer,
-    notifications: notificationsReducer,
-    ui: uiReducer,
-    [api.reducerPath]: api.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: ['persist/PERSIST'],
+        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
       },
-    }).concat(api.middleware),
+    }),
 });
 
-export type AppDispatch = typeof store.dispatch;
+export const persistor = persistStore(store);
+
 export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
+
+

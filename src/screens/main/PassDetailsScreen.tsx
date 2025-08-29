@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { lightTheme, typography } from '@/constants/theme';
+import { lightTheme, typography } from '../../constants/theme';
 
 export const PassDetailsScreen: React.FC = () => {
   return (

@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { supabase } from '@/services/supabase';
+import { supabase } from '../services/supabase';
 
 // Custom base query for Supabase
 const supabaseBaseQuery = async (args: any) => {

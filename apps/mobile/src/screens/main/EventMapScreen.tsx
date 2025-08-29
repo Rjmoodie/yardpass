@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { supabase } from '@/services/supabase';
+import { supabase } from '../../../services/supabase';
 
 const { width, height } = Dimensions.get('window');
 

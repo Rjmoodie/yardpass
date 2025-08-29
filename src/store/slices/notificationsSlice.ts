@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { supabase } from '@/services/supabase';
-import { Notification, NotificationsState } from '@/types';
+import { supabase } from '../../services/supabase';
+import { Notification, NotificationsState } from '../../types';
 
 // Async thunks
 export const fetchNotifications = createAsyncThunk(

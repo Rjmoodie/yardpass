@@ -14,9 +14,9 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { signIn } from '@/store/slices/authSlice';
-import { RootState } from '@/store';
-import { theme } from '@/constants/theme';
+import { signIn } from '../../store/slices/authSlice';
+import { RootState } from '../../store';
+import { theme } from '../../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SignInScreen: React.FC = () => {

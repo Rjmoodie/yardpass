@@ -1,41 +1,57 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { theme } from '@/constants/theme';
-import { FeedFilter } from '@/types';
+import { useTheme } from '../../contexts/ThemeContext';
+// import { FeedFilter } from '@yardpass/types';
+
+// Temporary type until packages are built
+interface FeedFilter {
+  type: 'all' | 'following' | 'trending' | 'nearby' | 'for_you' | 'near_me';
+  cursor?: string;
+}
 
 interface FeedFilterTabsProps {
   currentFilter: FeedFilter['type'];
   onFilterChange: (filter: FeedFilter['type']) => void;
 }
 
-const FeedFilterTabs: React.FC<FeedFilterTabsProps> = ({ 
-  currentFilter, 
-  onFilterChange 
+const filters: { key: FeedFilter['type']; label: string }[] = [
+  { key: 'for_you', label: 'For You' },
+  { key: 'following', label: 'Following' },
+  { key: 'near_me', label: 'Near Me' },
+  { key: 'trending', label: 'Trending' },
+];
+
+export const FeedFilterTabs: React.FC<FeedFilterTabsProps> = ({
+  currentFilter,
+  onFilterChange,
 }) => {
-  const filters: { type: FeedFilter['type']; label: string; icon: string }[] = [
-    { type: 'for_you', label: 'For You', icon: '🔥' },
-    { type: 'following', label: 'Following', icon: '👥' },
-    { type: 'near_me', label: 'Near Me', icon: '📍' },
-    { type: 'trending', label: 'Trending', icon: '📈' },
-  ];
+  const { theme } = useTheme();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
       {filters.map((filter) => (
         <TouchableOpacity
-          key={filter.type}
+          key={filter.key}
           style={[
             styles.tab,
-            currentFilter === filter.type && styles.activeTab
+            currentFilter === filter.key && {
+              borderBottomColor: theme.colors.primary,
+              borderBottomWidth: 2,
+            },
           ]}
-          onPress={() => onFilterChange(filter.type)}
-          activeOpacity={0.8}
+          onPress={() => onFilterChange(filter.key)}
         >
-          <Text style={styles.icon}>{filter.icon}</Text>
-          <Text style={[
-            styles.label,
-            currentFilter === filter.type && styles.activeLabel
-          ]}>
+          <Text
+            style={[
+              styles.tabText,
+              {
+                color:
+                  currentFilter === filter.key
+                    ? theme.colors.primary
+                    : theme.colors.textSecondary,
+              },
+            ]}
+          >
             {filter.label}
           </Text>
         </TouchableOpacity>
@@ -47,33 +63,19 @@ const FeedFilterTabs: React.FC<FeedFilterTabsProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   tab: {
-    flexDirection: 'row',
+    flex: 1,
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 8,
   },
-  activeTab: {
-    backgroundColor: theme.colors.primary,
-  },
-  icon: {
+  tabText: {
     fontSize: 16,
-    marginRight: theme.spacing.xs,
-  },
-  label: {
-    fontSize: 14,
     fontWeight: '600',
-    color: theme.colors.textSecondary,
-  },
-  activeLabel: {
-    color: theme.colors.text,
   },
 });
 
-export default FeedFilterTabs;

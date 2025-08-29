@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { Post, PostsState, FeedFilter, FeedItem, PostVisibility, AccessLevel, ApiResponse, PaginatedResponse } from '@/types';
-import { supabase, isUsingMockData } from '@/services/supabase';
-import { mockDataService } from '@/services/mockData';
+import { Post, PostsState, FeedFilter, FeedItem, PostVisibility, AccessLevel, ApiResponse, PaginatedResponse } from '../../types';
+import { supabase } from '../../services/supabase';
 
 // Enhanced async thunks with proper error handling and caching
 export const fetchFeed = createAsyncThunk(
@@ -11,35 +10,7 @@ export const fetchFeed = createAsyncThunk(
       const { auth } = getState() as { auth: { user: any } };
       const user = auth.user;
 
-      // Use mock data if Supabase is not configured
-      if (isUsingMockData) {
-        const mockPosts = await mockDataService.getPosts();
-        
-        // Transform mock data to FeedItems
-        const feedItems: FeedItem[] = mockPosts.map(post => ({
-          id: post.id,
-          post,
-          event: post.event,
-          author: post.author,
-          isGated: post.visibility === PostVisibility.GATED,
-          hasAccess: canAccessContent(user, post.accessLevel),
-          distance: filter.location ? calculateDistance(
-            filter.location.latitude,
-            filter.location.longitude,
-            post.event.location.latitude,
-            post.event.location.longitude
-          ) : undefined,
-          relevanceScore: calculateRelevanceScore(post, user, filter),
-          isSponsored: post.isSponsored,
-          sponsoredBy: post.organizer
-        }));
-
-        return {
-          data: feedItems,
-          count: feedItems.length,
-          filter
-        };
-      }
+      // Use real Supabase service
 
       let query = supabase
         .from('posts')

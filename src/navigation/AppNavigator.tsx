@@ -5,43 +5,43 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 
-import { RootStackParamList, MainTabParamList } from '@/types';
-import { RootState } from '@/store';
-import { getCurrentUser } from '@/store/slices/authSlice';
+import { RootStackParamList, MainTabParamList } from '../types';
+import { RootState } from '../store';
+import { getCurrentUser } from '../store/slices/authSlice';
 
 // Auth Screens
-import SignInScreen from '@/screens/auth/SignInScreen';
-import SignUpScreen from '@/screens/auth/SignUpScreen';
+import SignInScreen from '../screens/auth/SignInScreen';
+import SignUpScreen from '../screens/auth/SignUpScreen';
 
 // Main Tab Screens
-import HomeScreen from '@/screens/main/HomeScreen';
-import DiscoverScreen from '@/screens/main/DiscoverScreen';
-import CreateScreen from '@/screens/main/CreateScreen';
-import WalletScreen from '@/screens/main/WalletScreen';
-import ProfileScreen from '@/screens/main/ProfileScreen';
+import HomeScreen from '../screens/main/HomeScreen';
+import DiscoverScreen from '../screens/main/DiscoverScreen';
+import CreateScreen from '../screens/main/CreateScreen';
+import WalletScreen from '../screens/main/WalletScreen';
+import ProfileScreen from '../screens/main/ProfileScreen';
 
 // Event Screens
-import EventHubScreen from '@/screens/events/EventHubScreen';
-import EventEditorScreen from '@/screens/events/EventEditorScreen';
+import EventHubScreen from '../screens/events/EventHubScreen';
+import EventEditorScreen from '../screens/events/EventEditorScreen';
 
 // Post Screens
-import CreatePostScreen from '@/screens/posts/CreatePostScreen';
-import PostDetailsScreen from '@/screens/posts/PostDetailsScreen';
+import CreatePostScreen from '../screens/posts/CreatePostScreen';
+import PostDetailsScreen from '../screens/posts/PostDetailsScreen';
 
 // Ticket Screens
-import TicketPurchaseScreen from '@/screens/tickets/TicketPurchaseScreen';
-import TicketDetailsScreen from '@/screens/tickets/TicketDetailsScreen';
+import TicketPurchaseScreen from '../screens/tickets/TicketPurchaseScreen';
+import TicketDetailsScreen from '../screens/tickets/TicketDetailsScreen';
 
 // Organizer Screens
-import OrganizerDashboardScreen from '@/screens/organizer/OrganizerDashboardScreen';
-import MediaSchedulerScreen from '@/screens/organizer/MediaSchedulerScreen';
-import AnalyticsScreen from '@/screens/organizer/EnhancedAnalyticsScreen';
+import OrganizerDashboardScreen from '../screens/organizer/OrganizerDashboardScreen';
+import MediaSchedulerScreen from '../screens/organizer/MediaSchedulerScreen';
+import AnalyticsScreen from '../screens/organizer/EnhancedAnalyticsScreen';
 
 // Other Screens
-import ChatScreen from '@/screens/chat/ChatScreen';
-import SettingsScreen from '@/screens/main/SettingsScreen';
-import NotificationsScreen from '@/screens/main/NotificationsScreen';
-import FollowersScreen from '@/screens/main/FollowersScreen';
+import ChatScreen from '../screens/chat/ChatScreen';
+import SettingsScreen from '../screens/main/SettingsScreen';
+import NotificationsScreen from '../screens/main/NotificationsScreen';
+import FollowersScreen from '../screens/main/FollowersScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();

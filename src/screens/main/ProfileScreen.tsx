@@ -1,257 +1,200 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Image,
-  Alert,
-  RefreshControl,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  SafeAreaView,
+  Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '@/store';
-import { ApiService } from '@/services/api';
-import { theme } from '@/constants/theme';
-import { useProtectedAction } from '@/hooks/useProtectedAction';
+import { useNavigation } from '../../hooks/useNavigation';
+import { useAuth } from '../../contexts/AuthContext';
+
+const { width } = Dimensions.get('window');
+
+interface ProfileImage {
+  id: string;
+  imageUrl: string;
+}
+
+const profileImages: ProfileImage[] = [
+  {
+    id: '1',
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDjiHQyHgKTeyxv6fX8wAhIjnfyB6zQo7xY0AdF9PS6AQMD7gnkPF0QmiJUSjEnECGZYOLq2JG7A-rSh1Tbg8Vfx8_zZIHn3zaHk1P0sebTzjDKgZNie35o08qJF0Me2ExWI1qXK7XGL-7JpxM6oKn3U7k8rMjJ27B3E2g-2z78-zL0BF8U4VvmLSRA1FpnlG8G_FBhH3oQO734Qip7zKr8rhuwYMN89DQre29O-LxFtYRaUnVdvUC58dCzht9zNhMGTOSvRJoyMjQJ',
+  },
+  {
+    id: '2',
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCdboM6zZ_yj8MzTcxNo9gwkRfGaa6YlXQXACpEv-4x5nviysoxN8z-wDTFt1xkvWDL57w799ynQC_U97vU9A7yg7uucvIKgXAkvSH4zTN1AUQ1AJ1VddytNCAolAlOZODlRUs_E-Hg5ZJYUG-JXjmyel7heUCqyo_NsFATHsqtrj2rqn0X_a74CIa7ugpFq88aGBlMZ3cFMYgVe7QAiMGwNT5mka2rHNVfl7zSnND3OtGTDi7oMD8cfGzPFyLKkN98cc8NWrJXMLrF',
+  },
+  {
+    id: '3',
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDHpv8rUntKwiP2_ke6HKXnriddaN7es4IRCR5iPQt9W-UZv-HTonK-5Gw5NZoxC0ghExGljd9M7LQiu14IApMv7S7laSug7DzFQ30nVn7tg7Ms6h6iAdF4UEif7PQ6s5ljTmDZLwScDs8bjg-quT7JXm3s13hstDe9SuZ8oxYFAyFYnAwaZkDii4GPctVkwOP7mgthDr2MW2P1G2KgfLGuP02Cp8pw9sRXm4HV00_N6y2Co9R4RK89WDAQP-8iimfMKEV67VwonSVJ',
+  },
+  {
+    id: '4',
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuATZs0MfkQ3C4PzfzksYmj26MaLoZc11-YhzCa0R9h4eKWKwO5QYvnuwK8qbIg93TH-FZL9cqTIvtmpvwaGWc3gDNi_2eJ9V6vb02Zut7aVm9JocY-eemq29RhrtUsYPLnuXkl3KAl0feINCOvVXa_ZHWiPNvkr6kZh_LmSnOqI7Fh1MlMb2z5ng-9hNEBmedyKP0nDlEOxGtDbXfuxLwdm1IFvNpDEXm7Ri0_SftG65pJm5pV3bd-DfyICugvC3uLHBvxXqbTvyr-r',
+  },
+  {
+    id: '5',
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDScQN4DfCvCehoyuWoNqo5fKgdJmMrkTk771G-r50gkaOkbIiEftH2pxkZqTppg-wAte6hpKbeuRQquBWTLnmRGYhvzyvKjkmFJF9apE0Qq8cNhNcmEbgWiMZpuMDO5IYaPUZTBZT59TntRTNARYtZI1BSCac0GMfJICstn_WM_OLcUGM7HjW-WgfupNZSipRZe7ZNGGFSR84sum27yzWaBKgxz6-zroFfdwxMIzKrpTWWin7aP6w4mZw0BU3Bx0dkFYzouMIe95hD',
+  },
+  {
+    id: '6',
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCduY1w6KfBjdU1aHDuAqOzu89-dGEPBLtcscw6ZR0KsbWzEipxCI9rx35lLpJhlceLQYhLbRvuLUurcf8SayID370Ipm33su4C-BrZuOGyStvtB10M6eCVmxrqLWmcH_RenXOyLr7owotHKr2VlWsFKx0w7d06KM5dXGrkkiTmFSiiO5hOHlugAJJpJMmv1XQSvHWGaKSJRrN8y-wyv3AvDRM7_D5ijJKpmcfLv9au5DIyF57lmVIGyhcvGwXg-e5LSknwpI1S0D1q',
+  },
+];
 
 const ProfileScreen: React.FC = () => {
-  const navigation = useNavigation();
-  const dispatch = useDispatch();
-  const { requireAuth } = useProtectedAction();
+  const [activeTab, setActiveTab] = useState<'content' | 'events'>('content');
   
-  const { user } = useSelector((state: RootState) => state.auth);
-  const [refreshing, setRefreshing] = useState(false);
-  const [userStats, setUserStats] = useState({
-    eventsAttended: 0,
-    postsCreated: 0,
-    followers: 0,
-    following: 0,
-  });
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    navigateToEditProfile,
+    navigateToWallet,
+    navigateToSettings,
+    navigateToNotifications,
+    navigateToFollowersFollowing,
+  } = useNavigation();
+  
+  const { user } = useAuth();
 
-  useEffect(() => {
-    loadUserProfile();
-  }, [user]);
+  const StatItem = ({ value, label }: { value: string; label: string }) => (
+    <View style={styles.statItem}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
 
-  const loadUserProfile = async () => {
-    if (!user?.id) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const response = await ApiService.user.getUserProfile(user.id);
-      
-      if (response.success && response.data) {
-        setUserProfile(response.data);
-        setUserStats({
-          eventsAttended: response.data.events_attended?.[0]?.count || 0,
-          postsCreated: response.data.posts_created?.[0]?.count || 0,
-          followers: response.data.followers?.[0]?.count || 0,
-          following: response.data.following?.[0]?.count || 0,
-        });
-      } else {
-        console.error('Failed to load user profile:', response.error);
-      }
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadUserProfile();
-    setRefreshing(false);
-  };
+  const ProfileImage = ({ image }: { image: ProfileImage }) => (
+    <TouchableOpacity style={styles.profileImage}>
+      <Image source={{ uri: image.imageUrl }} style={styles.imageContent} />
+    </TouchableOpacity>
+  );
 
   const handleEditProfile = () => {
-    requireAuth(() => {
-      navigation.navigate('EditProfile' as never);
-    }, 'Sign in to edit your profile');
+    navigateToEditProfile();
+  };
+
+  const handleMyTickets = () => {
+    navigateToWallet();
   };
 
   const handleSettings = () => {
-    navigation.navigate('Settings' as never);
+    navigateToSettings();
   };
 
   const handleFollowers = () => {
-    navigation.navigate('Followers' as never);
+    navigateToFollowersFollowing('user123', 'followers');
   };
 
   const handleFollowing = () => {
-    navigation.navigate('Following' as never);
+    navigateToFollowersFollowing('user123', 'following');
   };
-
-  const handleMyEvents = () => {
-    requireAuth(() => {
-      navigation.navigate('MyEvents' as never);
-    }, 'Sign in to view your events');
-  };
-
-  const handleMyPosts = () => {
-    requireAuth(() => {
-      navigation.navigate('MyPosts' as never);
-    }, 'Sign in to view your posts');
-  };
-
-  const handleWallet = () => {
-    navigation.navigate('Wallet' as never);
-  };
-
-  const handleHelp = () => {
-    Alert.alert('Help & Support', 'Contact us at support@yardpass.com');
-  };
-
-  const menuItems = [
-    {
-      id: 'events',
-      title: 'My Events',
-      subtitle: 'Events you\'ve attended or created',
-      icon: 'calendar',
-      color: theme.colors.primary,
-      onPress: handleMyEvents,
-    },
-    {
-      id: 'posts',
-      title: 'My Posts',
-      subtitle: 'Content you\'ve shared',
-      icon: 'images',
-      color: '#FF6B6B',
-      onPress: handleMyPosts,
-    },
-    {
-      id: 'wallet',
-      title: 'Wallet',
-      subtitle: 'Tickets and payment methods',
-      icon: 'wallet',
-      color: '#4ECDC4',
-      onPress: handleWallet,
-    },
-    {
-      id: 'settings',
-      title: 'Settings',
-      subtitle: 'App preferences and account',
-      icon: 'settings',
-      color: '#95A5A6',
-      onPress: handleSettings,
-    },
-    {
-      id: 'help',
-      title: 'Help & Support',
-      subtitle: 'Get help and contact us',
-      icon: 'help-circle',
-      color: '#F39C12',
-      onPress: handleHelp,
-    },
-  ];
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading profile...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
-            <Ionicons name="create" size={24} color={theme.colors.primary} />
-          </TouchableOpacity>
-        </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle}>@liamcarter</Text>
+        <TouchableOpacity style={styles.menuButton} onPress={handleSettings}>
+          <Ionicons name="ellipsis-vertical" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
 
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Profile Section */}
         <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <Image
-              source={{
-                uri: userProfile?.avatar_url || user?.avatar_url || 'https://via.placeholder.com/100',
-              }}
-              style={styles.avatar}
-            />
-            <TouchableOpacity style={styles.avatarEditButton}>
-              <Ionicons name="camera" size={16} color="white" />
+          <View style={styles.profileInfo}>
+            {/* Profile Picture */}
+            <View style={styles.profilePictureContainer}>
+              <Image
+                source={{
+                  uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAC2ZW6k71QIA0yTlGGv0wnOVFoDWH73syhYGPyqBLT3fLDRpGydvzPfuM46Y2MhyXEr9SQQm6O3X_wG9s88Fpbpudgd8CDlHX5pvHn2w6HeqhEWDWyWwCs8K8MjG9pDcDqeRRQwcSpFJzpdcYHOIM1ur5Is13vD0Ph1EBhlTVmA7-Y2CTyTGS4evxCmq-frpgHOB4ZZkq5_cl5eJFD80HZoKVItHDk0QbdxolBm0Ry2EPl3HQrmTvHV99dXFIm0YZ-a8Wrh7kd5BK5',
+                }}
+                style={styles.profilePicture}
+              />
+              <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
+                <Ionicons name="create" size={16} color="#1a1a1a" />
+              </TouchableOpacity>
+            </View>
+
+            {/* User Info */}
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>Liam Carter</Text>
+              <Text style={styles.userTitle}>Event Organizer</Text>
+            </View>
+          </View>
+
+          {/* Stats */}
+          <View style={styles.statsContainer}>
+            <StatItem value="156" label="Posts" />
+            <TouchableOpacity onPress={handleFollowers}>
+              <StatItem value="2.4K" label="Followers" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleFollowing}>
+              <StatItem value="892" label="Following" />
             </TouchableOpacity>
           </View>
-          
-          <Text style={styles.userName}>
-            {userProfile?.display_name || user?.display_name || user?.email || 'User'}
-          </Text>
-          
-          <Text style={styles.userHandle}>
-            @{userProfile?.handle || user?.handle || 'user'}
-          </Text>
-          
-          <Text style={styles.userBio}>
-            {userProfile?.bio || 'No bio yet. Tap edit to add one!'}
-          </Text>
-        </View>
 
-        {/* Stats Section */}
-        <View style={styles.statsSection}>
-          <TouchableOpacity style={styles.statItem} onPress={handleMyEvents}>
-            <Text style={styles.statNumber}>{userStats.eventsAttended}</Text>
-            <Text style={styles.statLabel}>Events</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.statItem} onPress={handleMyPosts}>
-            <Text style={styles.statNumber}>{userStats.postsCreated}</Text>
-            <Text style={styles.statLabel}>Posts</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.statItem} onPress={handleFollowers}>
-            <Text style={styles.statNumber}>{userStats.followers}</Text>
-            <Text style={styles.statLabel}>Followers</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.statItem} onPress={handleFollowing}>
-            <Text style={styles.statNumber}>{userStats.following}</Text>
-            <Text style={styles.statLabel}>Following</Text>
-          </TouchableOpacity>
-        </View>
+          {/* Bio */}
+          <View style={styles.bioContainer}>
+            <Text style={styles.bioText}>
+              Event organizer and content creator. Sharing amazing experiences and creating unforgettable moments. 🎉
+            </Text>
+          </View>
 
-        {/* Menu Section */}
-        <View style={styles.menuSection}>
-          {menuItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.menuItem}
-              onPress={item.onPress}
-            >
-              <View style={[styles.menuIcon, { backgroundColor: item.color }]}>
-                <Ionicons name={item.icon as any} size={20} color="white" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+          {/* Action Buttons */}
+          <View style={styles.actionButtons}>
+            <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
+              <Text style={styles.editProfileText}>Edit Profile</Text>
             </TouchableOpacity>
-          ))}
+            <TouchableOpacity style={styles.shareProfileButton}>
+              <Ionicons name="share-outline" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Version Info */}
-        <View style={styles.versionSection}>
-          <Text style={styles.versionText}>YardPass v1.0.0</Text>
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          <View style={styles.tabs}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'content' && styles.activeTab]}
+              onPress={() => setActiveTab('content')}
+            >
+              <Ionicons 
+                name="grid-outline" 
+                size={24} 
+                color={activeTab === 'content' ? '#00ff88' : '#666'} 
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'events' && styles.activeTab]}
+              onPress={() => setActiveTab('events')}
+            >
+              <Ionicons 
+                name="calendar-outline" 
+                size={24} 
+                color={activeTab === 'events' ? '#00ff88' : '#666'} 
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Content Grid */}
+        <View style={styles.contentGrid}>
+          {activeTab === 'content' ? (
+            profileImages.map((image) => (
+              <ProfileImage key={image.id} image={image} />
+            ))
+          ) : (
+            <View style={styles.eventsContainer}>
+              <Text style={styles.noEventsText}>No events yet</Text>
+              <Text style={styles.noEventsSubtext}>Create your first event to get started</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -261,146 +204,177 @@ const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#1a1a1a',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  headerSpacer: {
+    width: 24,
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollView: {
     flex: 1,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  profileSection: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingBottom: 20,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+  profileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  profilePictureContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
+  profilePicture: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   editButton: {
-    padding: 8,
-  },
-  profileSection: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: 16,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    borderColor: theme.colors.primary,
-  },
-  avatarEditButton: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: theme.colors.primary,
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#00ff88',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'white',
+    justifyContent: 'center',
+  },
+  userInfo: {
+    flex: 1,
   },
   userName: {
-    fontSize: 24,
+    color: 'white',
+    fontSize: 20,
     fontWeight: 'bold',
-    color: theme.colors.text,
     marginBottom: 4,
   },
-  userHandle: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-    marginBottom: 12,
+  userTitle: {
+    color: '#999',
+    fontSize: 14,
   },
-  userBio: {
-    fontSize: 16,
-    color: theme.colors.text,
-    textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: 280,
-  },
-  statsSection: {
+  statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 20,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    marginBottom: 20,
   },
   statItem: {
     alignItems: 'center',
-    flex: 1,
   },
-  statNumber: {
-    fontSize: 20,
+  statValue: {
+    color: 'white',
+    fontSize: 18,
     fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: 4,
   },
   statLabel: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  bioContainer: {
+    marginBottom: 20,
+  },
+  bioText: {
+    color: 'white',
     fontSize: 14,
-    color: theme.colors.textSecondary,
+    lineHeight: 20,
   },
-  menuSection: {
-    paddingVertical: 20,
-  },
-  menuItem: {
+  actionButtons: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    gap: 12,
   },
-  menuIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  menuContent: {
+  editProfileButton: {
     flex: 1,
-  },
-  menuTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: theme.colors.text,
-    marginBottom: 2,
-  },
-  menuSubtitle: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-  },
-  versionSection: {
+    backgroundColor: '#333',
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: 'center',
-    paddingVertical: 20,
   },
-  versionText: {
+  editProfileText: {
+    color: 'white',
     fontSize: 14,
-    color: theme.colors.textSecondary,
+    fontWeight: '600',
+  },
+  shareProfileButton: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#333',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabsContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    paddingTop: 16,
+  },
+  tabs: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+  },
+  tab: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#00ff88',
+  },
+  contentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  profileImage: {
+    width: (width - 60) / 3,
+    height: (width - 60) / 3,
+    marginBottom: 2,
+    marginRight: 2,
+  },
+  imageContent: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  eventsContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  noEventsText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  noEventsSubtext: {
+    color: '#999',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
 

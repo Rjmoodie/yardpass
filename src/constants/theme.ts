@@ -1,35 +1,79 @@
-import { Theme } from '@/types';
+// import { Theme } from '@yardpass/types';
+
+// Temporary Theme interface until packages are built
+interface Theme {
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+    surface: string;
+    text: string;
+    textSecondary: string;
+    border: string;
+    error: string;
+    success: string;
+    warning: string;
+    white: string;
+    black: string;
+  };
+  spacing: {
+    xs: number;
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+  };
+  borderRadius: {
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+  };
+  typography: {
+    h1: {
+      fontSize: number;
+      fontWeight: string;
+      lineHeight: number;
+    };
+    h2: {
+      fontSize: number;
+      fontWeight: string;
+      lineHeight: number;
+    };
+    h3: {
+      fontSize: number;
+      fontWeight: string;
+      lineHeight: number;
+    };
+    body: {
+      fontSize: number;
+      fontWeight: string;
+      lineHeight: number;
+    };
+    caption: {
+      fontSize: number;
+      fontWeight: string;
+      lineHeight: number;
+    };
+  };
+}
 
 export const lightTheme: Theme = {
   colors: {
-    primary: '#6366F1', // Indigo - main brand color
-    secondary: '#EC4899', // Pink - for highlights and CTAs
-    accent: '#8B5CF6', // Purple - accent color
-    background: '#FFFFFF',
-    surface: '#F8FAFC',
-    text: '#1E293B',
-    textSecondary: '#64748B',
-    border: '#E2E8F0',
+    primary: '#6366F1', // Indigo
+    secondary: '#8B5CF6', // Violet
+    accent: '#EC4899', // Pink
+    background: '#FFFFFF', // Light background
+    surface: '#F8F9FA', // Light surface
+    text: '#1A1A1A',
+    textSecondary: '#666666',
+    border: '#E5E5E5',
     error: '#EF4444',
     success: '#10B981',
     warning: '#F59E0B',
-    info: '#3B82F6',
-    overlay: 'rgba(0, 0, 0, 0.5)',
-    gated: '#F59E0B', // Amber for gated content
-    vip: '#A855F7', // Purple for VIP access
-    crew: '#DC2626', // Red for crew access
-  },
-  eventColors: {
-    music: '#EC4899', // Pink
-    sports: '#10B981', // Green
-    culture: '#F59E0B', // Amber
-    nightlife: '#8B5CF6', // Purple
-    business: '#3B82F6', // Blue
-    education: '#8B5CF6', // Purple
-    food: '#F59E0B', // Amber
-    technology: '#3B82F6', // Blue
-    health: '#10B981', // Green
-    other: '#6B7280', // Gray
+    white: '#FFFFFF',
+    black: '#000000',
   },
   spacing: {
     xs: 4,
@@ -37,7 +81,6 @@ export const lightTheme: Theme = {
     md: 16,
     lg: 24,
     xl: 32,
-    xxl: 48,
   },
   borderRadius: {
     sm: 4,
@@ -66,94 +109,39 @@ export const lightTheme: Theme = {
       fontWeight: '600',
       lineHeight: 24,
     },
-    h5: {
-      fontSize: 16,
-      fontWeight: '600',
-      lineHeight: 20,
-    },
-    h6: {
-      fontSize: 14,
-      fontWeight: '600',
-      lineHeight: 18,
-    },
     body: {
       fontSize: 16,
-      fontWeight: 'normal',
+      fontWeight: '400',
       lineHeight: 24,
     },
-    caption: {
-      fontSize: 12,
-      fontWeight: 'normal',
-      lineHeight: 16,
-    },
-    button: {
-      fontSize: 16,
-      fontWeight: '600',
+    bodySmall: {
+      fontSize: 14,
+      fontWeight: '400',
       lineHeight: 20,
     },
-  },
-  shadows: {
-    sm: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 1,
-    },
-    md: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    lg: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
-      elevation: 6,
-    },
-    xl: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.25,
-      shadowRadius: 16,
-      elevation: 12,
+    caption: {
+      fontSize: 14,
+      fontWeight: '400',
+      lineHeight: 20,
     },
   },
 };
 
-export const darkTheme: Theme = {
+export const theme: Theme = {
   colors: {
-    primary: '#818CF8', // Lighter indigo for dark mode
-    secondary: '#F472B6', // Lighter pink for dark mode
-    accent: '#A78BFA', // Lighter purple for dark mode
-    background: '#0F172A',
-    surface: '#1E293B',
-    text: '#F1F5F9',
-    textSecondary: '#94A3B8',
-    border: '#334155',
-    error: '#F87171',
-    success: '#34D399',
-    warning: '#FBBF24',
-    info: '#60A5FA',
-    overlay: 'rgba(0, 0, 0, 0.7)',
-    gated: '#FBBF24', // Lighter amber for dark mode
-    vip: '#C084FC', // Lighter purple for dark mode
-    crew: '#F87171', // Lighter red for dark mode
-  },
-  eventColors: {
-    music: '#F472B6', // Lighter pink for dark mode
-    sports: '#34D399', // Lighter green for dark mode
-    culture: '#FBBF24', // Lighter amber for dark mode
-    nightlife: '#A78BFA', // Lighter purple for dark mode
-    business: '#60A5FA', // Lighter blue for dark mode
-    education: '#A78BFA', // Lighter purple for dark mode
-    food: '#FBBF24', // Lighter amber for dark mode
-    technology: '#60A5FA', // Lighter blue for dark mode
-    health: '#34D399', // Lighter green for dark mode
-    other: '#94A3B8', // Lighter gray for dark mode
+    primary: '#6366F1', // Indigo
+    secondary: '#8B5CF6', // Violet
+    accent: '#EC4899', // Pink
+    background: '#0F0F23', // Dark blue-black
+    surface: '#1A1A2E', // Dark blue-gray
+    text: '#FFFFFF',
+    textSecondary: '#A1A1AA',
+    border: '#27272A',
+    error: '#EF4444',
+    success: '#10B981',
+    warning: '#F59E0B',
+    white: '#FFFFFF',
+    black: '#000000',
   },
   spacing: {
     xs: 4,
@@ -161,7 +149,6 @@ export const darkTheme: Theme = {
     md: 16,
     lg: 24,
     xl: 32,
-    xxl: 48,
   },
   borderRadius: {
     sm: 4,
@@ -185,169 +172,65 @@ export const darkTheme: Theme = {
       fontWeight: '600',
       lineHeight: 28,
     },
-    h4: {
-      fontSize: 18,
-      fontWeight: '600',
-      lineHeight: 24,
-    },
-    h5: {
-      fontSize: 16,
-      fontWeight: '600',
-      lineHeight: 20,
-    },
-    h6: {
-      fontSize: 14,
-      fontWeight: '600',
-      lineHeight: 18,
-    },
     body: {
       fontSize: 16,
       fontWeight: 'normal',
       lineHeight: 24,
     },
     caption: {
-      fontSize: 12,
+      fontSize: 14,
       fontWeight: 'normal',
-      lineHeight: 16,
-    },
-    button: {
-      fontSize: 16,
-      fontWeight: '600',
       lineHeight: 20,
     },
   },
-  shadows: {
-    sm: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
-      elevation: 1,
-    },
-    md: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.15,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    lg: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
-      elevation: 6,
-    },
-    xl: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.3,
-      shadowRadius: 16,
-      elevation: 12,
-    },
-  },
 };
 
-export const typography = {
-  h1: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    lineHeight: 40,
-  },
-  h2: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    lineHeight: 32,
-  },
-  h3: {
-    fontSize: 20,
-    fontWeight: '600',
-    lineHeight: 28,
-  },
-  h4: {
-    fontSize: 18,
-    fontWeight: '600',
-    lineHeight: 24,
-  },
-  body: {
-    fontSize: 16,
-    fontWeight: 'normal',
-    lineHeight: 24,
-  },
-  bodySmall: {
-    fontSize: 14,
-    fontWeight: 'normal',
-    lineHeight: 20,
-  },
-  caption: {
-    fontSize: 12,
-    fontWeight: 'normal',
-    lineHeight: 16,
-  },
-};
-
+// Additional theme utilities
 export const shadows = {
-  sm: {
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  md: {
+  small: {
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  lg: {
+  medium: {
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 4,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.30,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  large: {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.37,
+    shadowRadius: 7.49,
+    elevation: 12,
   },
 };
 
-// Event-specific colors
-export const eventColors = {
-  music: '#EC4899', // Pink
-  sports: '#10B981', // Green
-  culture: '#F59E0B', // Amber
-  nightlife: '#8B5CF6', // Purple
-  business: '#3B82F6', // Blue
-  education: '#8B5CF6', // Purple
-  food: '#F59E0B', // Amber
-  technology: '#3B82F6', // Blue
-  health: '#10B981', // Green
-  other: '#6B7280', // Gray
+export const gradients = {
+  primary: ['#6366F1', '#8B5CF6'],
+  secondary: ['#8B5CF6', '#EC4899'],
+  background: ['#0F0F23', '#1A1A2E'],
+  surface: ['#1A1A2E', '#27272A'],
 };
 
-// Access level colors
-export const accessColors = {
-  general: '#6366F1', // Indigo
-  vip: '#A855F7', // Purple
-  crew: '#DC2626', // Red
+export const animations = {
+  fast: 200,
+  normal: 300,
+  slow: 500,
 };
 
-// Status colors
-export const statusColors = {
-  active: '#10B981', // Green
-  used: '#6B7280', // Gray
-  expired: '#EF4444', // Red
-  cancelled: '#F59E0B', // Amber
-  transferred: '#3B82F6', // Blue
-};
+export const typography = theme.typography;
 
-// Default theme export (for backward compatibility)
-export const theme = lightTheme;

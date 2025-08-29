@@ -7,7 +7,7 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import { lightTheme, typography } from '@/constants/theme';
+import { lightTheme, typography } from '../../constants/theme';
 
 interface ButtonProps {
   title: string;

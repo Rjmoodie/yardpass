@@ -9,7 +9,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { lightTheme, typography } from '@/constants/theme';
+import { lightTheme, typography } from '../../constants/theme';
 
 interface InputProps {
   label?: string;

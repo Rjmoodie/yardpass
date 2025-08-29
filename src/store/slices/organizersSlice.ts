@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { supabase, TABLES, formatResponse } from '@/services/supabase';
-import { Organizer, OrganizersState } from '@/types';
+import { supabase, TABLES, formatResponse } from '../../services/supabase';
+import { Organizer, OrganizersState } from '../../types';
 
 // ✅ OPTIMIZED: Async thunks with caching and eager loading
 export const fetchOrganizers = createAsyncThunk(
