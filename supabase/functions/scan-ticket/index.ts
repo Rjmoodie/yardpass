@@ -1,22 +1,36 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
+};
 
 interface ScanTicketRequest {
-  qr_code: string
-  event_id: string
-  scanner_location?: string
-  scanner_notes?: string
+  qr_code: string;
+  event_id: string;
+  scanner_location?: string;
+  scanner_notes?: string;
+  device_info?: {
+    device_id?: string;
+    app_version?: string;
+    platform?: string;
+  };
+}
+
+interface QRCodeData {
+  ticket_id: string;
+  order_id: string;
+  event_id: string;
+  user_id: string;
+  timestamp: number;
+  signature: string;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -29,26 +43,26 @@ serve(async (req) => {
           headers: { Authorization: req.headers.get('Authorization')! },
         },
       }
-    )
+    );
 
     // Get the authenticated user (scanner)
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
 
     // Parse request body
-    const body: ScanTicketRequest = await req.json()
+    const body: ScanTicketRequest = await req.json();
 
     // Validate required fields
     if (!body.qr_code || !body.event_id) {
       return new Response(
         JSON.stringify({ error: 'QR code and event ID are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
 
     // Get the event
@@ -56,21 +70,21 @@ serve(async (req) => {
       .from('events')
       .select('*')
       .eq('id', body.event_id)
-      .single()
+      .single();
 
     if (eventError || !event) {
       return new Response(
         JSON.stringify({ error: 'Event not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
 
     // Check if scanner has permission to scan for this event
-    let hasScanPermission = false
+    let hasScanPermission = false;
 
     // Event creator can scan
     if (event.created_by === user.id) {
-      hasScanPermission = true
+      hasScanPermission = true;
     }
 
     // Organization admins/owners can scan
@@ -81,10 +95,10 @@ serve(async (req) => {
         .eq('org_id', event.owner_context_id)
         .eq('user_id', user.id)
         .in('role', ['admin', 'owner'])
-        .single()
+        .single();
 
       if (orgMembership) {
-        hasScanPermission = true
+        hasScanPermission = true;
       }
     }
 
@@ -95,173 +109,225 @@ serve(async (req) => {
       .eq('event_id', body.event_id)
       .eq('user_id', user.id)
       .eq('status', 'active')
-      .single()
+      .single();
 
     if (scannerAssignment) {
-      hasScanPermission = true
+      hasScanPermission = true;
     }
 
     if (!hasScanPermission) {
       return new Response(
         JSON.stringify({ error: 'You do not have permission to scan tickets for this event' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
 
     // Find the ticket by QR code
     const { data: ticket, error: ticketError } = await supabaseClient
-      .from('tickets')
+      .from('tickets_owned')
       .select(`
         *,
-        events (
+        tickets (
+          id,
+          name,
+          description,
+          price_cents,
+          access_level
+        ),
+        events!tickets_event_id_fkey (
           id,
           title,
           slug,
           start_at,
-          venue
+          end_at,
+          venue,
+          city
         ),
-        ticket_tiers (
-          id,
-          name,
-          description
-        ),
-        user_profiles!tickets_user_id_fkey (
+        users!tickets_owned_user_id_fkey (
           id,
           display_name,
           email
         )
       `)
       .eq('qr_code', body.qr_code)
-      .eq('event_id', body.event_id)
-      .single()
+      .single();
 
     if (ticketError || !ticket) {
       return new Response(
         JSON.stringify({ 
           error: 'Invalid ticket',
-          details: 'QR code not found or ticket not valid for this event'
+          details: 'QR code not found'
         }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
 
-    // Check ticket status
-    if (ticket.status !== 'active') {
+    // Verify QR code data if available
+    if (ticket.qr_code_data) {
+      try {
+        const qrData: QRCodeData = ticket.qr_code_data;
+        
+        // Verify signature
+        const expectedSignature = btoa(`${qrData.ticket_id}_${qrData.order_id}_${qrData.timestamp}`).substring(0, 8);
+        if (qrData.signature !== expectedSignature) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Invalid ticket',
+              details: 'QR code signature verification failed'
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Check if QR code is expired (24 hours)
+        const now = Date.now();
+        const qrAge = now - qrData.timestamp;
+        const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+        if (qrAge > maxAge) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Expired ticket',
+              details: 'QR code has expired'
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Verify event ID matches
+        if (qrData.event_id !== body.event_id) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Invalid ticket for this event',
+              details: 'QR code is for a different event'
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (error) {
+        console.error('QR code data verification error:', error);
+        // Continue with basic validation if QR data is corrupted
+      }
+    }
+
+    // Check if ticket is already used
+    if (ticket.is_used) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Ticket not valid',
-          details: `Ticket status: ${ticket.status}`,
-          ticket_status: ticket.status
+        JSON.stringify({
+          error: 'Ticket already used',
+          details: `Ticket was used at ${new Date(ticket.used_at!).toLocaleString()}`,
+          ticket: {
+            id: ticket.id,
+            used_at: ticket.used_at,
+            access_level: ticket.access_level
+          }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
 
-    // Check if ticket has already been scanned
-    if (ticket.scanned_at) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Ticket already scanned',
-          details: `Scanned at: ${ticket.scanned_at}`,
-          scanned_at: ticket.scanned_at,
-          scanned_by: ticket.scanned_by
-        }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // Check event timing
+    const now = new Date();
+    const eventStart = new Date(ticket.events.start_at);
+    const eventEnd = new Date(ticket.events.end_at);
 
-    // Check if event has started
-    const now = new Date()
-    const eventStart = new Date(event.start_at)
-    
     if (now < eventStart) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Event has not started yet',
-          details: `Event starts at: ${event.start_at}`,
-          event_start: event.start_at
+        JSON.stringify({
+          error: 'Event has not started',
+          details: `Event starts at ${eventStart.toLocaleString()}`,
+          ticket: {
+            id: ticket.id,
+            access_level: ticket.access_level,
+            event_start: ticket.events.start_at
+          }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     }
 
-    // Update ticket as scanned
-    const { error: scanError } = await supabaseClient
-      .from('tickets')
-      .update({
-        status: 'scanned',
-        scanned_at: new Date().toISOString(),
-        scanned_by: user.id,
-        scanner_location: body.scanner_location,
-        scanner_notes: body.scanner_notes
-      })
-      .eq('id', ticket.id)
-
-    if (scanError) {
-      console.error('Error updating ticket scan:', scanError)
+    if (now > eventEnd) {
       return new Response(
-        JSON.stringify({ error: 'Failed to record ticket scan' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+        JSON.stringify({
+          error: 'Event has ended',
+          details: `Event ended at ${eventEnd.toLocaleString()}`,
+          ticket: {
+            id: ticket.id,
+            access_level: ticket.access_level,
+            event_end: ticket.events.end_at
+          }
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Create scan record
-    await supabaseClient
-      .from('ticket_scans')
-      .insert({
-        ticket_id: ticket.id,
-        event_id: body.event_id,
-        scanner_id: user.id,
-        scan_location: body.scanner_location,
-        scan_notes: body.scanner_notes,
-        scan_timestamp: new Date().toISOString()
+    // Mark ticket as used
+    const { error: updateError } = await supabaseClient
+      .from('tickets_owned')
+      .update({
+        is_used: true,
+        used_at: new Date().toISOString()
       })
+      .eq('id', ticket.id);
 
-    // Log the scan
-    await supabaseClient
-      .from('user_behavior_logs')
+    if (updateError) {
+      console.error('Error updating ticket status:', updateError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to process ticket scan' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create check-in record
+    const { error: checkinError } = await supabaseClient
+      .from('checkins')
       .insert({
-        user_id: user.id,
-        event_id: body.event_id,
-        behavior_type: 'ticket_scan',
-        behavior_data: {
-          ticket_id: ticket.id,
-          ticket_number: ticket.ticket_number,
-          attendee_name: ticket.user_profiles?.display_name,
-          scan_location: body.scanner_location
+        tickets_owned_id: ticket.id,
+        scanned_by: user.id,
+        location: body.scanner_location ? `POINT(${body.scanner_location})` : null,
+        metadata: {
+          scanner_notes: body.scanner_notes,
+          device_info: body.device_info,
+          scan_timestamp: new Date().toISOString()
         }
-      })
+      });
 
+    if (checkinError) {
+      console.error('Error creating check-in record:', checkinError);
+      // Don't fail the scan if check-in record creation fails
+    }
+
+    // Return success response
     return new Response(
       JSON.stringify({
         success: true,
+        message: 'Ticket scanned successfully',
         ticket: {
           id: ticket.id,
-          ticket_number: ticket.ticket_number,
-          tier_name: ticket.ticket_tiers.name,
-          attendee_name: ticket.user_profiles?.display_name,
-          attendee_email: ticket.user_profiles?.email,
-          price: ticket.price
+          access_level: ticket.access_level,
+          ticket_name: ticket.tickets.name,
+          ticket_description: ticket.tickets.description,
+          user_name: ticket.users.display_name,
+          user_email: ticket.users.email,
+          scanned_at: new Date().toISOString()
         },
         event: {
+          id: ticket.events.id,
           title: ticket.events.title,
-          venue: ticket.events.venue
-        },
-        scan: {
-          timestamp: new Date().toISOString(),
-          location: body.scanner_location,
-          scanner: user.id
-        },
-        message: 'Ticket scanned successfully'
+          venue: ticket.events.venue,
+          city: ticket.events.city
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    );
 
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error('Scan ticket error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({
+        error: 'Ticket scanning failed',
+        details: error.message
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    );
   }
-})
+});

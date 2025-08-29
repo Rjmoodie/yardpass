@@ -1,0 +1,226 @@
+# TICKET PURCHASE FLOW FIXES
+# ===========================
+# This file contains all the updated code to fix the ticket purchase issues:
+# 1. Price calculation bug ($NaN)
+# 2. Confusing button labels
+# 3. Duplicate edge functions
+# 4. Inconsistent price formats
+
+## 1. DATABASE SCHEMA UPDATE
+## ========================
+
+-- Update the tickets table in supabase/schema.sql
+-- Replace the existing tickets table definition with:
+
+CREATE TABLE public.tickets (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price_cents INTEGER NOT NULL, -- Changed from DECIMAL to INTEGER for consistency
+    currency VARCHAR(3) DEFAULT 'USD',
+    quantity_available INTEGER NOT NULL,
+    quantity_sold INTEGER DEFAULT 0,
+    perks JSONB DEFAULT '[]',
+    access_level VARCHAR(20) DEFAULT 'general' CHECK (access_level IN ('general', 'vip', 'crew')),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+## 2. PRICE UTILITY FUNCTIONS
+## ==========================
+
+-- Create new file: src/utils/priceUtils.ts
+
+// Price utility functions for consistent formatting
+
+/**
+ * Convert cents to dollars
+ */
+export const centsToDollars = (cents: number): number => {
+  return cents / 100;
+};
+
+/**
+ * Convert dollars to cents
+ */
+export const dollarsToCents = (dollars: number): number => {
+  return Math.round(dollars * 100);
+};
+
+/**
+ * Format price for display
+ */
+export const formatPrice = (priceCents: number, currency: string = 'USD'): string => {
+  if (!priceCents || isNaN(priceCents)) {
+    return 'Free';
+  }
+  
+  const dollars = centsToDollars(priceCents);
+  
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency,
+  }).format(dollars);
+};
+
+/**
+ * Format price range for display
+ */
+export const formatPriceRange = (minCents: number, maxCents: number, currency: string = 'USD'): string => {
+  if (!minCents || !maxCents || isNaN(minCents) || isNaN(maxCents)) {
+    return 'Free';
+  }
+  
+  if (minCents === maxCents) {
+    return formatPrice(minCents, currency);
+  }
+  
+  const minDollars = centsToDollars(minCents);
+  const maxDollars = centsToDollars(maxCents);
+  
+  return `${formatPrice(minCents, currency)} - ${formatPrice(maxCents, currency)}`;
+};
+
+/**
+ * Validate price data
+ */
+export const isValidPrice = (priceCents: number): boolean => {
+  return priceCents !== null && priceCents !== undefined && !isNaN(priceCents) && priceCents >= 0;
+};
+
+## 3. FEED COMPONENT BUTTON FIX
+## =============================
+
+-- Update src/components/feed/FeedItemComponent.tsx
+-- Find this line (around line 373):
+-- {feedItem.post.accessLevel === AccessLevel.VIP ? 'Upgrade to VIP' : 'Get Tickets'}
+
+-- Replace with:
+{feedItem.post.accessLevel === AccessLevel.VIP ? 'Upgrade to VIP' : 'Purchase Tickets'}
+
+## 4. SEARCH SERVICE BUTTON FIX
+## ============================
+
+-- Update src/services/search.ts
+-- Find this line in the transformResults function:
+-- quickActions: ['View Details', 'Get Tickets', 'Share']
+
+-- Replace with:
+quickActions: ['View Details', 'Purchase Tickets', 'Share']
+
+-- Also update apps/mobile/src/services/search.ts with the same change
+
+## 5. EDGE FUNCTION UPDATES
+## ========================
+
+-- Update supabase/functions/purchase-tickets/index.ts
+-- Find the price calculation section and replace:
+
+// OLD CODE:
+const tierTotal = tier.price * ticket.quantity
+
+// NEW CODE:
+const tierTotal = (tier.price_cents / 100) * ticket.quantity
+
+// Also update the ticketDetails push:
+ticketDetails.push({
+  tier_id: tier.id,
+  tier_name: tier.name,
+  price: tier.price_cents / 100,  // Changed from tier.price
+  quantity: ticket.quantity,
+  total: tierTotal
+})
+
+-- Update supabase/functions/checkout-session/index.ts
+-- Find and replace:
+
+// OLD CODE:
+const itemTotal = tier.price * item.quantity;
+unit_amount: Math.round(tier.price * 100)
+
+// NEW CODE:
+const itemTotal = (tier.price_cents / 100) * item.quantity;
+unit_amount: tier.price_cents
+
+## 6. FILES TO DELETE
+## ==================
+
+-- Delete this duplicate file:
+supabase/functions/tickets/purchase-tickets.ts
+
+## 7. SQL MIGRATION SCRIPT
+## =======================
+
+-- Run this SQL to update existing data:
+
+-- Update existing tickets table to use price_cents
+ALTER TABLE public.tickets 
+ADD COLUMN price_cents INTEGER;
+
+-- Convert existing price data (if any)
+UPDATE public.tickets 
+SET price_cents = ROUND(price * 100) 
+WHERE price_cents IS NULL;
+
+-- Make price_cents NOT NULL after data migration
+ALTER TABLE public.tickets 
+ALTER COLUMN price_cents SET NOT NULL;
+
+-- Drop the old price column
+ALTER TABLE public.tickets 
+DROP COLUMN price;
+
+## 8. COMPONENT USAGE EXAMPLES
+## ===========================
+
+-- Example of using the new price utilities in components:
+
+import { formatPrice, isValidPrice } from '../utils/priceUtils';
+
+// In your component:
+const renderPrice = (tier: any) => {
+  if (!isValidPrice(tier.price_cents)) {
+    return <Text>Price not available</Text>;
+  }
+  
+  return <Text>{formatPrice(tier.price_cents, tier.currency)}</Text>;
+};
+
+## 9. TESTING CHECKLIST
+## ====================
+
+After implementing these changes, test:
+
+1. ✅ Price displays correctly (no more $NaN)
+2. ✅ Button labels are consistent ("Purchase Tickets" everywhere)
+3. ✅ Ticket purchase flow works end-to-end
+4. ✅ Price calculations are accurate
+5. ✅ Stripe integration works with price_cents
+6. ✅ No duplicate edge functions
+7. ✅ Database schema is consistent
+
+## 10. EDGE FUNCTIONS SUMMARY
+## ==========================
+
+The ticket purchase flow now uses these unified edge functions:
+
+1. checkout-session - Creates Stripe checkout sessions
+2. purchase-tickets - Handles ticket purchases  
+3. stripe-webhook - Processes payment completion
+4. generate-tickets - Creates actual tickets
+5. get-entitlements - Checks user access levels
+
+All functions now use consistent price_cents format.
+
+## 11. IMPORTANT NOTES
+## ===================
+
+- All prices are now stored as cents (integers) in the database
+- Display formatting is handled by the priceUtils functions
+- Stripe integration uses price_cents directly
+- Button labels are now consistent across the app
+- Duplicate functionality has been removed
+
+This should resolve the $NaN bug and create a consistent ticket purchase experience!

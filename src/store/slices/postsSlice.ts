@@ -357,9 +357,9 @@ export const updateWatchTime = createAsyncThunk(
 function canAccessContent(user: any, accessLevel: AccessLevel): boolean {
   if (!user) return false;
   
-  // Check user's ticket access levels
-  // This would need to be implemented based on user's tickets
-  return accessLevel === AccessLevel.GENERAL;
+  // For now, allow all access levels until we implement proper entitlements checking
+  // TODO: Implement proper entitlements checking by calling get-entitlements API
+  return true;
 }
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {

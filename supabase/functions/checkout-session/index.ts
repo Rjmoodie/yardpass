@@ -82,11 +82,11 @@ serve(async (req) => {
     // Fetch ticket tiers and validate availability
     const tierIds = items.map((item) => item.tier_id);
     const { data: tiers, error: tiersError } = await supabaseClient
-      .from('ticket_tiers')
+      .from('tickets')
       .select('*')
       .in('id', tierIds)
       .eq('event_id', event_id)
-      .eq('status', 'active');
+      .eq('is_active', true);
 
     if (tiersError || !tiers) {
       return new Response(JSON.stringify({

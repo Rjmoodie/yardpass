@@ -123,8 +123,11 @@ CREATE TABLE public.media_assets (
     thumbnail_url TEXT,
     duration INTEGER, -- for videos, in seconds
     size INTEGER, -- file size in bytes
+    mux_id VARCHAR(255), -- Mux asset ID for video processing
+    mux_playback_id VARCHAR(255), -- Mux playback ID for streaming
     metadata JSONB DEFAULT '{}',
     access_level VARCHAR(20) DEFAULT 'public' CHECK (access_level IN ('public', 'gated', 'private')),
+    status VARCHAR(20) DEFAULT 'processing' CHECK (status IN ('processing', 'ready', 'error')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -250,6 +253,11 @@ CREATE INDEX idx_posts_author_id ON public.posts(author_id);
 CREATE INDEX idx_posts_created_at ON public.posts(created_at);
 CREATE INDEX idx_tickets_owned_user_id ON public.tickets_owned(user_id);
 CREATE INDEX idx_tickets_owned_qr_code ON public.tickets_owned(qr_code);
+CREATE INDEX idx_tickets_owned_qr_code_image ON public.tickets_owned(qr_code_image);
+CREATE INDEX idx_tickets_owned_qr_code_data ON public.tickets_owned USING GIN(qr_code_data);
+CREATE INDEX idx_media_assets_mux_id ON public.media_assets(mux_id);
+CREATE INDEX idx_media_assets_status ON public.media_assets(status);
+CREATE INDEX idx_media_assets_type ON public.media_assets(type);
 CREATE INDEX idx_reactions_post_id ON public.reactions(post_id);
 CREATE INDEX idx_follows_organizer_id ON public.follows(organizer_id);
 
